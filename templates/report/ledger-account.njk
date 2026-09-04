@@ -62,7 +62,7 @@
                         <XMLTAG>party_ledger</XMLTAG>
                     </FIELD>
                     <FIELD NAME="FldAmount">
-                        <SET>if $$IsDebit:($AllLedgerEntries[1,@@FilterLedgerEqual].Amount) then -$$NumValue:$AllLedgerEntries[1,@@FilterLedgerEqual].Amount else $$NumValue:$AllLedgerEntries[1,@@FilterLedgerEqual].Amount</SET>
+                        <SET>if $$IsDebit:($AllLedgerEntries[1,@@FilterLedgerEqual].Amount) then -$$NumValue:$$FilterAmtTotal:AllLedgerEntries:FilterLedgerEqual:$Amount else $$NumValue:$$FilterAmtTotal:AllLedgerEntries:FilterLedgerEqual:$Amount</SET>
                         <XMLTAG>amount</XMLTAG>
                     </FIELD>
                     <FIELD NAME="FldNarration">
