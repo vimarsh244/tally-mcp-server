@@ -15,7 +15,7 @@
   },
   "homepage": "https://github.com/dhananjay1405/tally-mcp-server#readme",
   "support": "https://github.com/dhananjay1405/tally-mcp-server#readme",
-  "license": "ISC",
+  "license": "AGPL-3.0-only",
   "server": {
     "type": "node",
     "entry_point": "dist/index.mjs",
