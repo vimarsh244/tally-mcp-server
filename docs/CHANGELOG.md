@@ -2,6 +2,21 @@
 
 ### Unreleased
 
+Security (remote HTTP deployment only, the Claude Desktop extension is not affected):
+* `GET /mcp` and `DELETE /mcp` required no authentication. Anyone who could name a session id could open its notification stream or end it. Every method on `/mcp` now needs a valid bearer token
+* A session is now owned by the OAuth client that opened it. Any valid token could previously drive any session
+* `/token` parsed the client secret from the Basic authentication header and then discarded it without checking. It is verified now, in constant time
+* The refresh token returned was a copy of the access token, and `refresh_token` was not an accepted grant, so a client had to re-enter the password every hour. Refresh tokens are now separate, rotate on use, expire, and are bound to the client they were issued to
+* DNS rebinding protection was configured but never switched on, and the value passed was a URL where a host name was expected. It is enabled, and accepts `MCP_DOMAIN`, the loopback names, and anything in the new `ALLOWED_HOSTS`
+* The password was compared with `==`, which is not constant time, and there was no limit on attempts. It is compared in constant time and limited per address, tunable with `AUTH_ATTEMPT_LIMIT` and `AUTH_ATTEMPT_WINDOW_MS`
+* `POST /authorize` accepted any `client_id` and any `redirect_uri`. Both are validated, as they already were on `GET /authorize`
+* `/register` accepted any string as a `redirect_uri`, including `javascript:`. Only absolute http and https URLs without a fragment are accepted, and the client table is bounded by `MAX_REGISTERED_CLIENTS`
+* `.env` was committed with `PASSWORD=password`, so every clone shipped a known password. It is removed from the repository and ignored, `.env.example` replaces it, and the server refuses to start on a non-local `MCP_DOMAIN` while the password is still the default. Set `ALLOW_DEFAULT_PASSWORD=1` to override
+* Authorization codes, tokens and attempt counters now expire and are swept
+
+Added:
+* GitHub Actions CI, running the type check, the build, a check that the committed `dist/` and manifest are current, the tests on Node 22 and 24, and a guard against committing `.env`
+
 Changed:
 * Internal restructuring, with no change to the tool surface. The XML templates are now compiled from `templates/**/*.njk` instead of being kept a second time as minified strings, the tool definitions are split into modules under `src/tools/`, the Tally access code is split under `src/tally/`, and the `tools` list in `manifest.json` is generated from the registered tools
 * Every MCP session now gets its own in-memory result cache. It used to be one shared instance, so in the web-server setup one client could read another client's cached tables through *query-database*
