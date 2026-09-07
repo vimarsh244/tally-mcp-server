@@ -4,7 +4,8 @@
 
 import path from 'node:path';
 import { assertPasswordIsSafe, config } from './config.mjs';
-import { createApp } from './http/app.mjs';
+import { defaultDataDir, ensureAdminToken, ProfileStore } from './profiles.mjs';
+import { createApp, type AppOptions } from './http/app.mjs';
 
 try {
     assertPasswordIsSafe();
@@ -15,6 +16,24 @@ try {
 }
 
 const publicDir = path.join(import.meta.dirname, '..');
-const { app } = createApp(publicDir);
+const options: AppOptions = {};
 
-app.listen(config.port, () => console.log(`MCP Server started on port ${config.port}`));
+if (config.multiUser) {
+    const dataDir = config.dataDir || defaultDataDir();
+    options.profiles = new ProfileStore(dataDir);
+    options.adminToken = ensureAdminToken(dataDir);
+}
+
+const { app } = createApp(publicDir, options);
+
+app.listen(config.port, config.bindHost, () => {
+    console.log(`MCP Server started on ${config.bindHost}:${config.port}`);
+
+    if (!options.profiles) return;
+
+    console.log(`Profiles: ${options.profiles.list().length} in ${options.profiles.dir}`);
+    console.log(`Setup page: ${config.domain}/admin`);
+
+    if (options.profiles.isEmpty)
+        console.log('No profiles yet. Open the setup page to add one for each Tally user.');
+});

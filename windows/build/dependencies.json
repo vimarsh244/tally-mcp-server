@@ -1,0 +1,13 @@
+{
+  "comment": "Pinned downloads for the Windows payload. Every file is checked against its digest before it is used. Update a version and its sha256 together.",
+  "node": {
+    "version": "24.20.0",
+    "url": "https://nodejs.org/dist/v{version}/win-x64/node.exe",
+    "sha256": "5c976096e04e5c2c1f091938926234cc9fbebfe9787ddd149351b3b0ecc707b5"
+  },
+  "winsw": {
+    "version": "2.12.0",
+    "url": "https://github.com/winsw/winsw/releases/download/v{version}/WinSW-x64.exe",
+    "sha256": "05b82d46ad331cc16bdc00de5c6332c1ef818df8ceefcd49c726553209b3a0da"
+  }
+}

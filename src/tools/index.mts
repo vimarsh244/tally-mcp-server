@@ -29,12 +29,22 @@ const readModules: ToolModule[] = [
 /** Modules hidden when BLOCK_WRITE is set. */
 const writeModules: ToolModule[] = [writeTools];
 
-export async function registerMcpServer(): Promise<McpServer> {
+export interface McpServerOptions {
+    /**
+     * Hides the write tools. Defaults to the BLOCK_WRITE environment setting.
+     * The HTTP transport passes the profile's own value, so one profile can be
+     * read only while another may write.
+     */
+    blockWrite?: boolean;
+}
+
+export async function registerMcpServer(options: McpServerOptions = {}): Promise<McpServer> {
     const server = new McpServer(serverInfo);
     const context: ToolContext = { server, cache: await ResultCache.create() };
+    const blockWrite = options.blockWrite ?? config.blockWrite;
 
     for (const register of readModules) register(context);
-    if (!config.blockWrite)
+    if (!blockWrite)
         for (const register of writeModules) register(context);
 
     return server;

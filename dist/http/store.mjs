@@ -46,7 +46,7 @@ export class AuthStore {
     accessTokens = new Map();
     refreshTokens = new Map();
     attempts = new Map();
-    registerClient(clientName, redirectUris) {
+    registerClient(realm, clientName, redirectUris) {
         // bounded so repeated registration cannot exhaust memory; the oldest goes first
         while (this.clients.size >= config.maxRegisteredClients) {
             const oldest = [...this.clients.entries()].sort((a, b) => a[1].created_at - b[1].created_at)[0];
@@ -56,6 +56,7 @@ export class AuthStore {
         }
         const client = {
             client_id: generateSecureToken(16),
+            realm,
             client_name: clientName,
             client_secret: generateSecureToken(32),
             redirect_uris: redirectUris,
@@ -64,12 +65,14 @@ export class AuthStore {
         this.clients.set(client.client_id, client);
         return client;
     }
-    getClient(clientId) {
-        return this.clients.get(clientId);
+    /** Returns the client only when it belongs to the realm that is asking for it. */
+    getClient(clientId, realm) {
+        const client = this.clients.get(clientId);
+        return client && client.realm === realm ? client : undefined;
     }
     /** Confirms a client secret, in constant time, when the client presented one. */
-    verifyClientSecret(clientId, secret) {
-        const client = this.clients.get(clientId);
+    verifyClientSecret(clientId, realm, secret) {
+        const client = this.getClient(clientId, realm);
         if (!client)
             return false;
         if (secret === undefined)
@@ -89,11 +92,11 @@ export class AuthStore {
         this.codes.delete(code);
         return entry.expires_at < Date.now() ? undefined : entry;
     }
-    issueTokens(clientId) {
+    issueTokens(clientId, realm) {
         const accessToken = generateSecureToken(32);
         const refreshToken = generateSecureToken(32);
-        this.accessTokens.set(accessToken, { client_id: clientId, expires_at: Date.now() + config.accessTokenTtlMs });
-        this.refreshTokens.set(refreshToken, { client_id: clientId, expires_at: Date.now() + config.refreshTokenTtlMs });
+        this.accessTokens.set(accessToken, { client_id: clientId, realm, expires_at: Date.now() + config.accessTokenTtlMs });
+        this.refreshTokens.set(refreshToken, { client_id: clientId, realm, expires_at: Date.now() + config.refreshTokenTtlMs });
         return { accessToken, refreshToken, expiresInSeconds: Math.floor(config.accessTokenTtlMs / 1000) };
     }
     verifyAccessToken(token) {

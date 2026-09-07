@@ -3,7 +3,7 @@
  */
 
 import http from 'node:http';
-import { config } from '../config.mjs';
+import { currentTallyTarget } from '../tally-target.mjs';
 import { renderTemplate, type TemplateName } from '../templates.mjs';
 
 /** Tally's own default for the current company, which must not be sent explicitly. */
@@ -21,13 +21,16 @@ export async function sendTallyXml(template: TemplateName, variables: Map<string
 }
 
 export function postTallyXml(xml: string): Promise<string> {
+    // read once per call, so a target that changes between calls is honoured
+    const target = currentTallyTarget();
+
     return new Promise<string>((resolve, reject) => {
         const request = http.request({
-            hostname: config.tallyHost,
-            port: config.tallyPort,
+            hostname: target.host,
+            port: target.port,
             path: '',
             method: 'POST',
-            timeout: config.tallyTimeout,
+            timeout: target.timeout,
             headers: {
                 'Content-Length': Buffer.byteLength(xml, 'utf16le'),
                 'Content-Type': 'text/xml;charset=utf-16'
@@ -43,14 +46,14 @@ export function postTallyXml(xml: string): Promise<string> {
 
         // without this the request waits forever when Tally accepts the socket but never replies
         request.on('timeout', () => {
-            request.destroy(new Error(`Tally did not respond within ${config.tallyTimeout} ms on port ${config.tallyPort}`));
+            request.destroy(new Error(`Tally did not respond within ${target.timeout} ms on port ${target.port}`));
         });
 
         request.on('error', (error: NodeJS.ErrnoException) => {
             // error.message reads 'connect ECONNREFUSED 127.0.0.1:9000', so the code must be
             // tested rather than the message, or this guidance never shows
             if (error.code === 'ECONNREFUSED')
-                reject(new Error(`Unable to connect to Tally. Ensure Tally is running and XML server is enabled on port ${config.tallyPort} by going to Help (F1) > Settings > Connectivity in Tally and setting Client / Server configuration, set Tally Prime is action as Server`));
+                reject(new Error(`Unable to connect to Tally on ${target.host}:${target.port}. Ensure Tally is running and XML server is enabled on port ${target.port} by going to Help (F1) > Settings > Connectivity in Tally and setting Client / Server configuration, set Tally Prime is action as Server`));
             else
                 reject(error);
         });

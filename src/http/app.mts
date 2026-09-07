@@ -4,9 +4,12 @@
 
 import express from 'express';
 import { config } from '../config.mjs';
+import type { ProfileStore } from '../profiles.mjs';
 import { AuthStore } from './store.mjs';
-import { registerOAuthRoutes } from './oauth.mjs';
+import { registerOAuthRoutes, registerWellKnownRoutes } from './oauth.mjs';
 import { registerMcpRoutes } from './mcp-route.mjs';
+import { registerAdminRoutes } from './admin.mjs';
+import { createRealmResolver } from './realm.mjs';
 
 export interface HttpApp {
     app: express.Express;
@@ -18,6 +21,12 @@ export interface HttpApp {
 export interface AppOptions {
     /** Host headers the MCP endpoint accepts. Defaults to the configured domain plus loopback. */
     allowedHosts?: string[];
+    /** Turns on the per profile routes under /u/<id>. */
+    profiles?: ProfileStore;
+    /** Turns on the setup page. Needs profiles as well. */
+    adminToken?: string;
+    /** Set false only in tests that reach the setup API from a non-loopback address. */
+    requireLoopbackAdmin?: boolean;
 }
 
 export function createApp(publicDir: string, options: AppOptions = {}): HttpApp {
@@ -37,8 +46,27 @@ export function createApp(publicDir: string, options: AppOptions = {}): HttpApp 
         next();
     });
 
-    registerOAuthRoutes(app, store, publicDir);
-    registerMcpRoutes(app, store, { allowedHosts: options.allowedHosts });
+    const resolveRealm = createRealmResolver(options.profiles);
+
+    // discovery sits above the mount points, because the resource path is
+    // appended after /.well-known/... rather than prefixed before it
+    registerWellKnownRoutes(app, resolveRealm);
+
+    // one router, mounted twice: at the root for a single Tally deployment and
+    // under /u/<id> for one profile per signed in Windows user
+    const realmRouter = express.Router({ mergeParams: true });
+    registerOAuthRoutes(realmRouter, store, publicDir, resolveRealm);
+    registerMcpRoutes(realmRouter, store, resolveRealm, { allowedHosts: options.allowedHosts });
+
+    app.use('/u/:profileId', realmRouter);
+    app.use('/', realmRouter);
+
+    if (options.profiles && options.adminToken)
+        registerAdminRoutes(app, publicDir, {
+            profiles: options.profiles,
+            adminToken: options.adminToken,
+            requireLoopback: options.requireLoopbackAdmin,
+        });
 
     const sweep = setInterval(() => store.sweep(), 60000);
     sweep.unref?.();

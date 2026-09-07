@@ -12,6 +12,8 @@ import { config } from '../config.mjs';
 
 export interface RegisteredClient {
     client_id: string;
+    /** The realm the client registered under. Empty for the root realm. */
+    realm: string;
     client_name: string;
     client_secret: string;
     redirect_uris: string[];
@@ -20,6 +22,7 @@ export interface RegisteredClient {
 
 export interface AuthorizationCode {
     client_id: string;
+    realm: string;
     redirect_uri: string;
     code_challenge: string;
     code_challenge_method: string;
@@ -28,6 +31,11 @@ export interface AuthorizationCode {
 
 export interface IssuedToken {
     client_id: string;
+    /**
+     * The realm the token was issued for. Checked on every request, so a token
+     * minted under one profile cannot drive another profile's Tally instance.
+     */
+    realm: string;
     expires_at: number;
 }
 
@@ -76,7 +84,7 @@ export class AuthStore {
     private readonly refreshTokens = new Map<string, IssuedToken>();
     private readonly attempts = new Map<string, { count: number; resetAt: number }>();
 
-    registerClient(clientName: string, redirectUris: string[]): RegisteredClient {
+    registerClient(realm: string, clientName: string, redirectUris: string[]): RegisteredClient {
         // bounded so repeated registration cannot exhaust memory; the oldest goes first
         while (this.clients.size >= config.maxRegisteredClients) {
             const oldest = [...this.clients.entries()].sort((a, b) => a[1].created_at - b[1].created_at)[0];
@@ -86,6 +94,7 @@ export class AuthStore {
 
         const client: RegisteredClient = {
             client_id: generateSecureToken(16),
+            realm,
             client_name: clientName,
             client_secret: generateSecureToken(32),
             redirect_uris: redirectUris,
@@ -95,13 +104,15 @@ export class AuthStore {
         return client;
     }
 
-    getClient(clientId: string): RegisteredClient | undefined {
-        return this.clients.get(clientId);
+    /** Returns the client only when it belongs to the realm that is asking for it. */
+    getClient(clientId: string, realm: string): RegisteredClient | undefined {
+        const client = this.clients.get(clientId);
+        return client && client.realm === realm ? client : undefined;
     }
 
     /** Confirms a client secret, in constant time, when the client presented one. */
-    verifyClientSecret(clientId: string, secret: string | undefined): boolean {
-        const client = this.clients.get(clientId);
+    verifyClientSecret(clientId: string, realm: string, secret: string | undefined): boolean {
+        const client = this.getClient(clientId, realm);
         if (!client) return false;
         if (secret === undefined) return false;
         return safeEquals(client.client_secret, secret);
@@ -121,12 +132,12 @@ export class AuthStore {
         return entry.expires_at < Date.now() ? undefined : entry;
     }
 
-    issueTokens(clientId: string): TokenPair {
+    issueTokens(clientId: string, realm: string): TokenPair {
         const accessToken = generateSecureToken(32);
         const refreshToken = generateSecureToken(32);
 
-        this.accessTokens.set(accessToken, { client_id: clientId, expires_at: Date.now() + config.accessTokenTtlMs });
-        this.refreshTokens.set(refreshToken, { client_id: clientId, expires_at: Date.now() + config.refreshTokenTtlMs });
+        this.accessTokens.set(accessToken, { client_id: clientId, realm, expires_at: Date.now() + config.accessTokenTtlMs });
+        this.refreshTokens.set(refreshToken, { client_id: clientId, realm, expires_at: Date.now() + config.refreshTokenTtlMs });
 
         return { accessToken, refreshToken, expiresInSeconds: Math.floor(config.accessTokenTtlMs / 1000) };
     }

@@ -43,7 +43,7 @@ test('an authorization code can only be spent once', () => {
 
 test('a refresh token can only be spent once', () => {
     const store = new AuthStore();
-    const { refreshToken } = store.issueTokens('c');
+    const { refreshToken } = store.issueTokens('c', '');
 
     assert.ok(store.consumeRefreshToken(refreshToken));
     assert.equal(store.consumeRefreshToken(refreshToken), undefined, 'a refresh token was replayed');
@@ -51,17 +51,17 @@ test('a refresh token can only be spent once', () => {
 
 test('client secrets are verified, and an absent secret never passes', () => {
     const store = new AuthStore();
-    const client = store.registerClient('n', ['https://example.com/cb']);
+    const client = store.registerClient('', 'n', ['https://example.com/cb']);
 
-    assert.equal(store.verifyClientSecret(client.client_id, client.client_secret), true);
-    assert.equal(store.verifyClientSecret(client.client_id, 'wrong'), false);
-    assert.equal(store.verifyClientSecret(client.client_id, undefined), false);
-    assert.equal(store.verifyClientSecret('unknown', 'whatever'), false);
+    assert.equal(store.verifyClientSecret(client.client_id, '', client.client_secret), true);
+    assert.equal(store.verifyClientSecret(client.client_id, '', 'wrong'), false);
+    assert.equal(store.verifyClientSecret(client.client_id, '', undefined), false);
+    assert.equal(store.verifyClientSecret('unknown', '', 'whatever'), false);
 });
 
 test('the client table is bounded', () => {
     const store = new AuthStore();
-    for (let i = 0; i < 150; i++) store.registerClient('n', ['https://example.com/cb']);
+    for (let i = 0; i < 150; i++) store.registerClient('', 'n', ['https://example.com/cb']);
     assert.ok(store.size().clients <= 100, `client table grew to ${store.size().clients}`);
 });
 
@@ -80,7 +80,7 @@ test('password attempts are limited and reset on success', () => {
 test('sweep drops what has expired', () => {
     const store = new AuthStore();
     store.createAuthorizationCode({ client_id: 'c', redirect_uri: 'r', code_challenge: 'x', code_challenge_method: 'S256' });
-    store.issueTokens('c');
+    store.issueTokens('c', '');
     assert.ok(store.size().codes > 0 && store.size().accessTokens > 0);
 
     store.sweep(Date.now() + 40 * 24 * 60 * 60 * 1000); // well past every lifetime

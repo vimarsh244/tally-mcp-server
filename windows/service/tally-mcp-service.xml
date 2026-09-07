@@ -1,0 +1,50 @@
+<!--
+  WinSW service definition.
+
+  WinSW reads the file that sits next to it under the same base name, so this
+  must stay tally-mcp-service.xml beside tally-mcp-service.exe.
+
+  %BASE% is the folder holding the wrapper, which the installer lays out as:
+
+    <install dir>\service\   this file and the wrapper
+    <install dir>\runtime\   the pinned copy of Node
+    <install dir>\app\       the server, its dependencies and its .env
+
+  The port and the data folder live in app\.env, which the server reads from its
+  working folder, so an administrator can change them without touching this file.
+  Only the two settings that must never be lost are repeated here.
+-->
+<service>
+    <id>TallyMcpServer</id>
+    <name>Tally MCP Server</name>
+    <description>Serves Tally Prime data to MCP clients such as Claude and ChatGPT. Listens on this machine only.</description>
+
+    <executable>%BASE%\..\runtime\node.exe</executable>
+    <arguments>"%BASE%\..\app\dist\server.mjs"</arguments>
+    <workingdirectory>%BASE%\..\app</workingdirectory>
+
+    <startmode>Automatic</startmode>
+
+    <!--
+      A safe floor, in case app\.env is deleted or was never written. dotenv
+      overrides these from that file, so the installer's chosen port still wins,
+      but losing the file must never drop the service back to a single shared
+      realm on every interface.
+    -->
+    <env name="MULTI_USER" value="1"/>
+    <env name="BIND_HOST" value="127.0.0.1"/>
+
+    <!-- a crash must not leave every user without their connector -->
+    <onfailure action="restart" delay="10 sec"/>
+    <onfailure action="restart" delay="30 sec"/>
+    <onfailure action="restart" delay="60 sec"/>
+    <resetfailure>1 hour</resetfailure>
+
+    <stoptimeout>15 sec</stoptimeout>
+
+    <logpath>%ProgramData%\TallyMcpServer\logs</logpath>
+    <log mode="roll-by-size">
+        <sizeThreshold>10240</sizeThreshold>
+        <keepFiles>8</keepFiles>
+    </log>
+</service>

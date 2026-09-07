@@ -23,12 +23,13 @@ const readModules = [
 ];
 /** Modules hidden when BLOCK_WRITE is set. */
 const writeModules = [writeTools];
-export async function registerMcpServer() {
+export async function registerMcpServer(options = {}) {
     const server = new McpServer(serverInfo);
     const context = { server, cache: await ResultCache.create() };
+    const blockWrite = options.blockWrite ?? config.blockWrite;
     for (const register of readModules)
         register(context);
-    if (!config.blockWrite)
+    if (!blockWrite)
         for (const register of writeModules)
             register(context);
     return server;
