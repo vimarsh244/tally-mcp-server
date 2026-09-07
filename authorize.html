@@ -175,7 +175,9 @@
                 };
 
                 // Make POST request to /authorize
-                const response = await fetch('/authorize', {
+                // posted back to the page's own path, so the same page serves
+                // the root realm at /authorize and a profile at /u/<id>/authorize
+                const response = await fetch(window.location.pathname, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

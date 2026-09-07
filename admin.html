@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tally MCP Server setup</title>
+<style>
+:root {
+    --bg: #f4f5f7; --card: #ffffff; --ink: #1c2330; --muted: #5c6779;
+    --line: #dfe3ea; --accent: #1f6feb; --ok: #1a7f4b; --bad: #b3261e;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 "Segoe UI", system-ui, -apple-system, Arial, sans-serif; }
+main { max-width: 960px; margin: 0 auto; padding: 32px 20px 80px; }
+h1 { font-size: 24px; margin: 0 0 4px; }
+h2 { font-size: 17px; margin: 0 0 14px; }
+p.lede { color: var(--muted); margin: 0 0 28px; }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 20px; margin-bottom: 20px; }
+label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+input, select { width: 100%; padding: 8px 10px; border: 1px solid var(--line);
+    border-radius: 6px; font: inherit; background: #fff; color: inherit; }
+input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+button { padding: 8px 14px; border: 1px solid var(--accent); background: var(--accent);
+    color: #fff; border-radius: 6px; font: inherit; cursor: pointer; white-space: nowrap; }
+button.ghost { background: #fff; color: var(--accent); }
+button.danger { background: #fff; color: var(--bad); border-color: var(--bad); }
+button:disabled { opacity: .5; cursor: default; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line);
+    vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+code, .mono { font-family: Consolas, "SF Mono", Menlo, monospace; font-size: 13px; word-break: break-all; }
+.tag { display: inline-block; padding: 1px 7px; border-radius: 99px; font-size: 12px;
+    border: 1px solid var(--line); color: var(--muted); }
+.tag.rw { color: var(--bad); border-color: var(--bad); }
+.tag.ro { color: var(--ok); border-color: var(--ok); }
+.note { background: #fff8e1; border: 1px solid #f0d68a; border-radius: 8px;
+    padding: 12px 14px; margin-top: 14px; font-size: 14px; }
+.note.bad { background: #fdecea; border-color: #f3b7b2; }
+.note.good { background: #e9f6ee; border-color: #a9d9bd; }
+.muted { color: var(--muted); }
+.stack > * + * { margin-top: 12px; }
+[hidden] { display: none !important; }
+@media (prefers-color-scheme: dark) {
+    :root { --bg: #14171c; --card: #1b1f26; --ink: #e6e9ef; --muted: #9aa4b5;
+        --line: #2c333d; --accent: #4c8dff; }
+    input, select { background: #11151a; }
+    button.ghost, button.danger { background: transparent; }
+    .note { background: #2a2413; border-color: #5a4b1c; }
+    .note.bad { background: #2d1a18; border-color: #6a2f2a; }
+    .note.good { background: #142a1e; border-color: #2c5c41; }
+}
+</style>
+</head>
+<body>
+<main>
+    <h1>Tally MCP Server setup</h1>
+    <p class="lede">Add one profile for each person who runs Tally on this machine. Every profile gets its own address and its own token.</p>
+
+    <section id="signin">
+        <h2>Admin token</h2>
+        <p class="muted">The token is in <code id="tokenPath">the data folder</code>, in the file <code>admin-token.txt</code>.</p>
+        <div class="row">
+            <div style="flex:1 1 320px"><input type="password" id="adminToken" placeholder="Paste the admin token"></div>
+            <button id="signinBtn">Sign in</button>
+        </div>
+        <div class="note bad" id="signinError" hidden></div>
+    </section>
+
+    <div id="console" hidden>
+        <section>
+            <h2>Find Tally</h2>
+            <p class="muted">Each running copy of Tally listens on its own XML port. Enable it in Tally under Help (F1) &gt; Settings &gt; Connectivity, and set the client and server configuration so TallyPrime acts as a server.</p>
+            <div class="row">
+                <div style="width:120px"><label for="scanFrom">From port</label><input type="number" id="scanFrom" value="9000"></div>
+                <div style="width:120px"><label for="scanTo">To port</label><input type="number" id="scanTo" value="9010"></div>
+                <button id="scanBtn">Scan</button>
+            </div>
+            <div id="scanOut" class="stack"></div>
+        </section>
+
+        <section>
+            <h2>Add a profile</h2>
+            <div class="grid">
+                <div><label for="pid">Profile id</label><input id="pid" placeholder="ramesh"></div>
+                <div><label for="plabel">Label</label><input id="plabel" placeholder="Ramesh, Acme Traders"></div>
+                <div><label for="puser">Windows user</label><input id="puser" placeholder="ACME\ramesh"></div>
+                <div><label for="pport">Tally port</label><input type="number" id="pport" value="9000"></div>
+                <div><label for="ppath">Company data path</label><input id="ppath" placeholder="D:\TallyData\Acme"></div>
+                <div><label for="ppass">Password</label><input type="password" id="ppass" placeholder="At least 8 characters"></div>
+                <div><label for="pwrite">Tools</label>
+                    <select id="pwrite">
+                        <option value="true" selected>Read only</option>
+                        <option value="false">Read and write</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row" style="margin-top:14px">
+                <button id="createBtn">Create profile</button>
+                <button class="ghost" id="testBtn">Test this port</button>
+            </div>
+            <div id="createOut" class="stack"></div>
+        </section>
+
+        <section>
+            <h2>Profiles</h2>
+            <div id="listOut">Loading...</div>
+        </section>
+    </div>
+</main>
+
+<script>
+'use strict';
+
+const $ = (id) => document.getElementById(id);
+let token = '';
+
+/** The installer opens this page with the token in the fragment, which never reaches the server. */
+function tokenFromLocation() {
+    const match = /(?:^|[#&])token=([^&]+)/.exec(window.location.hash || '');
+    return match ? decodeURIComponent(match[1]) : '';
+}
+
+async function api(method, path, body) {
+    const init = { method, headers: { 'X-Admin-Token': token } };
+    if (body !== undefined) {
+        init.headers['Content-Type'] = 'application/json';
+        init.body = JSON.stringify(body);
+    }
+    const res = await fetch('/admin/api' + path, init);
+    let json = null;
+    try { json = await res.json(); } catch (err) { /* an empty body is possible */ }
+    if (!res.ok) throw new Error((json && json.error) || ('Request failed with status ' + res.status));
+    return json;
+}
+
+function note(parent, text, kind) {
+    const div = document.createElement('div');
+    div.className = 'note' + (kind ? ' ' + kind : '');
+    div.textContent = text;
+    parent.replaceChildren(div);
+    return div;
+}
+
+function copyButton(value) {
+    const button = document.createElement('button');
+    button.className = 'ghost';
+    button.textContent = 'Copy';
+    button.addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(value);
+            button.textContent = 'Copied';
+            setTimeout(() => { button.textContent = 'Copy'; }, 1500);
+        } catch (err) {
+            button.textContent = 'Press Ctrl+C';
+        }
+    });
+    return button;
+}
+
+async function signIn() {
+    token = $('adminToken').value.trim();
+    if (!token) return;
+
+    try {
+        const state = await api('GET', '/state');
+        sessionStorage.setItem('tallyMcpAdminToken', token);
+        $('signin').hidden = true;
+        $('console').hidden = false;
+        render(state);
+    } catch (err) {
+        note($('signinError'), err.message, 'bad').hidden = false;
+        $('signinError').hidden = false;
+    }
+}
+
+function render(state) {
+    if (state.dataDir) $('tokenPath').textContent = state.dataDir;
+    const out = $('listOut');
+    out.replaceChildren();
+
+    if (!state.multiUser) {
+        note(out, 'MULTI_USER is not set to 1, so the per profile addresses are switched off. Set it and restart the service.', 'bad');
+        return;
+    }
+
+    if (state.profiles.length === 0) {
+        note(out, 'No profiles yet. Add one above for each person who runs Tally on this machine.');
+        return;
+    }
+
+    const table = document.createElement('table');
+    table.innerHTML = '<thead><tr><th>Profile</th><th>Tally</th><th>Address</th><th>Tools</th><th></th></tr></thead>';
+    const tbody = document.createElement('tbody');
+
+    for (const profile of state.profiles) {
+        const tr = document.createElement('tr');
+
+        const who = document.createElement('td');
+        who.innerHTML = '<strong></strong><div class="muted mono"></div>';
+        who.querySelector('strong').textContent = profile.label;
+        who.querySelector('div').textContent = profile.id + (profile.windowsUser ? ' \u00b7 ' + profile.windowsUser : '');
+        tr.appendChild(who);
+
+        const tally = document.createElement('td');
+        tally.className = 'mono';
+        tally.textContent = profile.tallyHost + ':' + profile.tallyPort;
+        tr.appendChild(tally);
+
+        const url = document.createElement('td');
+        const urlCode = document.createElement('div');
+        urlCode.className = 'mono';
+        urlCode.textContent = profile.url;
+        url.appendChild(urlCode);
+        url.appendChild(copyButton(profile.url));
+        tr.appendChild(url);
+
+        const tools = document.createElement('td');
+        const tag = document.createElement('span');
+        tag.className = 'tag ' + (profile.blockWrite ? 'ro' : 'rw');
+        tag.textContent = profile.blockWrite ? 'Read only' : 'Read and write';
+        tools.appendChild(tag);
+        tr.appendChild(tools);
+
+        const actions = document.createElement('td');
+        const rotate = document.createElement('button');
+        rotate.className = 'ghost';
+        rotate.textContent = 'New token';
+        rotate.addEventListener('click', () => rotateToken(profile.id, actions));
+        actions.appendChild(rotate);
+
+        const remove = document.createElement('button');
+        remove.className = 'danger';
+        remove.textContent = 'Remove';
+        remove.style.marginLeft = '6px';
+        remove.addEventListener('click', () => removeProfile(profile.id));
+        actions.appendChild(remove);
+        tr.appendChild(actions);
+
+        tbody.appendChild(tr);
+    }
+
+    table.appendChild(tbody);
+    out.appendChild(table);
+}
+
+async function refresh() {
+    render(await api('GET', '/state'));
+}
+
+async function rotateToken(id, host) {
+    try {
+        const result = await api('POST', '/profiles/' + encodeURIComponent(id) + '/token');
+        showToken(host, id, result.token);
+    } catch (err) {
+        note(host, err.message, 'bad');
+    }
+}
+
+/** A token is readable once, here, and only its hash is kept on disk. */
+function showToken(host, id, value) {
+    const box = document.createElement('div');
+    box.className = 'note good';
+    const text = document.createElement('strong');
+    text.textContent = 'Token for ' + id;
+    const code = document.createElement('div');
+    code.className = 'mono';
+    code.style.margin = '6px 0';
+    code.textContent = value;
+    box.appendChild(text);
+    box.appendChild(code);
+    box.appendChild(copyButton(value));
+    const warn = document.createElement('div');
+    warn.className = 'muted';
+    warn.style.marginTop = '6px';
+    warn.textContent = 'Copy it now. It is not shown again.';
+    box.appendChild(warn);
+    host.replaceChildren(box);
+}
+
+async function removeProfile(id) {
+    if (!window.confirm('Remove the profile ' + id + '? Anyone using its token loses access.')) return;
+    try {
+        await api('DELETE', '/profiles/' + encodeURIComponent(id));
+        await refresh();
+    } catch (err) {
+        note($('listOut'), err.message, 'bad');
+    }
+}
+
+async function scan() {
+    const out = $('scanOut');
+    note(out, 'Scanning...');
+    try {
+        const result = await api('POST', '/scan', {
+            fromPort: Number($('scanFrom').value),
+            toPort: Number($('scanTo').value),
+        });
+
+        if (result.results.length === 0) {
+            note(out, 'No Tally answered in that range. Check that Tally is running and that its XML server is on.', 'bad');
+            return;
+        }
+
+        out.replaceChildren();
+        const table = document.createElement('table');
+        table.innerHTML = '<thead><tr><th>Port</th><th>Companies</th><th></th></tr></thead>';
+        const tbody = document.createElement('tbody');
+
+        for (const found of result.results) {
+            const tr = document.createElement('tr');
+
+            const port = document.createElement('td');
+            port.className = 'mono';
+            port.textContent = String(found.port);
+            tr.appendChild(port);
+
+            const companies = document.createElement('td');
+            companies.textContent = found.companies.length
+                ? found.companies.map((c) => c.name + (c.active ? ' (open)' : '')).join(', ')
+                : 'No company found';
+            tr.appendChild(companies);
+
+            const use = document.createElement('td');
+            const button = document.createElement('button');
+            button.className = 'ghost';
+            button.textContent = 'Use this port';
+            button.addEventListener('click', () => {
+                $('pport').value = String(found.port);
+                const open = found.companies.find((c) => c.active) || found.companies[0];
+                if (open && !$('plabel').value) $('plabel').value = open.name;
+                $('pid').focus();
+            });
+            use.appendChild(button);
+            tr.appendChild(use);
+
+            tbody.appendChild(tr);
+        }
+
+        table.appendChild(tbody);
+        out.appendChild(table);
+    } catch (err) {
+        note(out, err.message, 'bad');
+    }
+}
+
+async function testPort() {
+    const out = $('createOut');
+    note(out, 'Testing...');
+    try {
+        const result = await api('POST', '/probe', { port: Number($('pport').value) });
+        if (!result.reachable) return note(out, result.error || 'No answer from that port', 'bad');
+        note(out, 'Tally answered. Companies: ' + (result.companies.map((c) => c.name).join(', ') || 'none'), 'good');
+    } catch (err) {
+        note(out, err.message, 'bad');
+    }
+}
+
+async function createProfile() {
+    const out = $('createOut');
+    try {
+        const result = await api('POST', '/profiles', {
+            id: $('pid').value.trim().toLowerCase(),
+            label: $('plabel').value.trim(),
+            windowsUser: $('puser').value.trim(),
+            tallyPort: Number($('pport').value),
+            dataPath: $('ppath').value.trim(),
+            password: $('ppass').value,
+            blockWrite: $('pwrite').value === 'true',
+        });
+
+        out.replaceChildren();
+        const address = document.createElement('div');
+        address.className = 'note good';
+        const line = document.createElement('strong');
+        line.textContent = 'Address';
+        const code = document.createElement('div');
+        code.className = 'mono';
+        code.style.margin = '6px 0';
+        code.textContent = result.profile.url;
+        address.appendChild(line);
+        address.appendChild(code);
+        address.appendChild(copyButton(result.profile.url));
+        out.appendChild(address);
+
+        const tokenBox = document.createElement('div');
+        out.appendChild(tokenBox);
+        showToken(tokenBox, result.profile.id, result.token);
+
+        for (const id of ['pid', 'plabel', 'puser', 'ppath', 'ppass']) $(id).value = '';
+        await refresh();
+    } catch (err) {
+        note(out, err.message, 'bad');
+    }
+}
+
+$('signinBtn').addEventListener('click', signIn);
+$('adminToken').addEventListener('keypress', (event) => { if (event.key === 'Enter') signIn(); });
+$('scanBtn').addEventListener('click', scan);
+$('testBtn').addEventListener('click', testPort);
+$('createBtn').addEventListener('click', createProfile);
+
+const preset = tokenFromLocation() || sessionStorage.getItem('tallyMcpAdminToken') || '';
+if (preset) {
+    $('adminToken').value = preset;
+    // the token must not sit in the address bar once it has been read
+    history.replaceState(null, '', window.location.pathname);
+    signIn();
+}
+</script>
+</body>
+</html>

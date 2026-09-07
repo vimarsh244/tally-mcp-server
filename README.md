@@ -82,11 +82,15 @@ Change the `.njk` file or the tool definition and run `pnpm build`.
 |--|--|
 |`src/tools/`|One module per group of MCP tools, plus the shared helpers|
 |`src/tally/`|Talking to Tally: the HTTP client, collection queries, reports and master writes|
+|`src/http/`|The HTTP transport: OAuth, the MCP endpoint, realms and the setup API|
+|`src/profiles.mts`|The profile registry, for several Tally users on one machine|
+|`src/tally-target.mts`|Which Tally instance the current request talks to|
 |`src/templates.mts`|Loads and renders the compiled XML templates|
 |`src/escape.mts`|The escaping rules for TDL expressions and SQL identifiers|
 |`src/definition.mts`|Collection, field and report definitions, data only|
 |`templates/`|The Tally XML templates, authored as readable nunjucks files|
 |`scripts/`|The two build steps described above|
+|`windows/`|The Windows service packaging: staging script, service definition, installer|
 |`tests/`|Tests, run with `pnpm test`|
 
 ## Supported Platform
@@ -515,6 +519,26 @@ End-users are free to hard-code few settings which needs to be applied
 |MAX_REGISTERED_CLIENTS|Upper bound on dynamically registered OAuth clients (*optional*, default is **100**)|
 |AUTH_ATTEMPT_LIMIT|Failed password attempts allowed per address per window (*optional*, default is **10**)|
 |AUTH_ATTEMPT_WINDOW_MS|Length of that window (*optional*, default is **900000**, i.e. 15 minutes)|
+|BIND_HOST|Address the HTTP server binds to. Set **127.0.0.1** to accept connections from this machine only (*optional*, default is **0.0.0.0**, i.e. every interface)|
+|MULTI_USER|Set to **1** to serve one profile per Tally user at `/u/<id>/mcp`. Each profile has its own Tally port, password and token, and the unprefixed routes are switched off (*optional*, default is **0**)|
+|TALLY_MCP_DATA_DIR|Where the profile registry and the admin token are kept. Applies only when `MULTI_USER=1` (*optional*, defaults to `%ProgramData%\TallyMcpServer` on Windows and `~/.tally-mcp-server` elsewhere)|
+
+## Several Tally users on one machine
+
+A Windows Server runs one copy of Tally per signed in person, and each copy needs
+its own XML port. `MULTI_USER=1` turns on the profile registry so one server
+process can serve all of them:
+
+* each profile is reachable at `/u/<id>/mcp` and talks only to its own Tally port
+* each profile has its own consent password and its own bearer token
+* a token issued for one profile is refused on every other profile
+* the write tools can be hidden per profile
+* a setup page at `/admin`, reachable from the machine itself and guarded by an
+  admin token, finds the running copies of Tally and makes the profiles
+
+The packaged Windows service does all of this. See
+[docs/server-setup-windows.md](docs/server-setup-windows.md) to install it, and
+[windows/README.md](windows/README.md) to build the setup EXE.
 
 ## Security of the remote deployment
 

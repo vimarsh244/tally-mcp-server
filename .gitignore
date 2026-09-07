@@ -6,3 +6,6 @@ dist/**/*.mjs.map
 private/
 .mcpbignore
 *.mcpb
+# Windows installer build
+windows/stage/
+build-output/

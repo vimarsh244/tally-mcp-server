@@ -4,8 +4,10 @@
 import express from 'express';
 import { config } from '../config.mjs';
 import { AuthStore } from './store.mjs';
-import { registerOAuthRoutes } from './oauth.mjs';
+import { registerOAuthRoutes, registerWellKnownRoutes } from './oauth.mjs';
 import { registerMcpRoutes } from './mcp-route.mjs';
+import { registerAdminRoutes } from './admin.mjs';
+import { createRealmResolver } from './realm.mjs';
 export function createApp(publicDir, options = {}) {
     const app = express();
     const store = new AuthStore();
@@ -19,8 +21,23 @@ export function createApp(publicDir, options = {}) {
         res.setHeader('Referrer-Policy', 'no-referrer');
         next();
     });
-    registerOAuthRoutes(app, store, publicDir);
-    registerMcpRoutes(app, store, { allowedHosts: options.allowedHosts });
+    const resolveRealm = createRealmResolver(options.profiles);
+    // discovery sits above the mount points, because the resource path is
+    // appended after /.well-known/... rather than prefixed before it
+    registerWellKnownRoutes(app, resolveRealm);
+    // one router, mounted twice: at the root for a single Tally deployment and
+    // under /u/<id> for one profile per signed in Windows user
+    const realmRouter = express.Router({ mergeParams: true });
+    registerOAuthRoutes(realmRouter, store, publicDir, resolveRealm);
+    registerMcpRoutes(realmRouter, store, resolveRealm, { allowedHosts: options.allowedHosts });
+    app.use('/u/:profileId', realmRouter);
+    app.use('/', realmRouter);
+    if (options.profiles && options.adminToken)
+        registerAdminRoutes(app, publicDir, {
+            profiles: options.profiles,
+            adminToken: options.adminToken,
+            requireLoopback: options.requireLoopbackAdmin,
+        });
     const sweep = setInterval(() => store.sweep(), 60000);
     sweep.unref?.();
     return { app, store, close: () => clearInterval(sweep) };

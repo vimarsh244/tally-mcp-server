@@ -24,6 +24,12 @@ export const config = {
     blockWrite: process.env.BLOCK_WRITE === '1',
     /** HTTP transport only. */
     port: toInt(process.env.PORT, 3000),
+    /**
+     * Address the HTTP server binds to. The Windows installer sets 127.0.0.1,
+     * so the service is reachable from that machine only. The default keeps
+     * every interface, which is what a public remote deployment needs.
+     */
+    bindHost: process.env.BIND_HOST || '0.0.0.0',
     domain: process.env.MCP_DOMAIN || 'http://localhost:3000',
     password: process.env.PASSWORD || DEFAULT_PASSWORD,
     /** Lifetime of an issued access token. */
@@ -39,6 +45,15 @@ export const config = {
     allowDefaultPassword: process.env.ALLOW_DEFAULT_PASSWORD === '1',
     /** How long a cached result table survives before it is dropped. */
     cacheTableTtlMs: toInt(process.env.CACHE_TABLE_TTL_MS, 15 * 60 * 1000),
+    /**
+     * Turns on the profile registry and the setup page. One Windows Server runs
+     * a copy of Tally per signed in user, each on its own XML port, so one
+     * listener has to serve several of them. Off by default, which leaves the
+     * single Tally deployment exactly as it was.
+     */
+    multiUser: process.env.MULTI_USER === '1',
+    /** Where the profile registry and the admin token are kept. */
+    dataDir: process.env.TALLY_MCP_DATA_DIR || '',
 };
 /**
  * Host names the MCP endpoint answers to, used for DNS rebinding protection.
@@ -79,6 +94,10 @@ export function isLocalDomain(domain = config.domain) {
  * public deployment. Local use is unaffected.
  */
 export function assertPasswordIsSafe() {
+    // multi user mode switches the root realm off, so the shared password guards
+    // nothing: every route is a profile with its own password
+    if (config.multiUser)
+        return;
     if (config.password !== DEFAULT_PASSWORD)
         return;
     if (isLocalDomain() || config.allowDefaultPassword)

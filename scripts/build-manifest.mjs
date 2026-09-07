@@ -10,7 +10,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const manifestPath = join(root, 'manifest.json');
@@ -19,7 +19,9 @@ const check = process.argv.includes('--check');
 // BLOCK_WRITE would hide the write tools, and the manifest must list them all
 delete process.env.BLOCK_WRITE;
 
-const { registerMcpServer } = await import(join(root, 'dist', 'mcp.mjs'));
+// converted to a file:// URL, because on Windows an absolute path starts with a
+// drive letter and the ESM loader reads 'd:' as an unsupported protocol
+const { registerMcpServer } = await import(pathToFileURL(join(root, 'dist', 'mcp.mjs')).href);
 const server = await registerMcpServer();
 
 // _registeredTools is internal to the SDK, but it is the only place the
