@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
@@ -250,7 +251,7 @@ test('the server refuses to start on a public domain with the default password',
         catch (e) { console.log('REFUSED: ' + e.message); }
     `;
     const at = (env) => run(process.execPath, ['--input-type=module', '-e', script], {
-        cwd: new URL('..', import.meta.url).pathname,
+        cwd: fileURLToPath(new URL('..', import.meta.url)),
         env: { ...process.env, ...env },
     }).then((r) => r.stdout.trim());
 

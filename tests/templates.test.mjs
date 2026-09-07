@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -5,7 +6,7 @@ import { join, relative, sep } from 'node:path';
 import nunjucks from 'nunjucks';
 import { tallyTemplates } from '../dist/templates.generated.mjs';
 
-const root = new URL('..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('..', import.meta.url));
 const templateDir = join(root, 'templates');
 
 const walk = (dir) => readdirSync(dir).flatMap((e) => {

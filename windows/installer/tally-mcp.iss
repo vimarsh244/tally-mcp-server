@@ -16,6 +16,11 @@
 #define StageDir       "..\stage"
 #define PfxPassword    "tally-mcp-localhost-2026"
 
+; A wildcard service payload otherwise compiles even when this helper is absent.
+#ifnexist StageDir + "\service\install-local-certificate.ps1"
+  #error "Certificate helper missing. Run windows\build\prepare.ps1 before compiling."
+#endif
+
 [Setup]
 ; keep this GUID for the life of the product, or upgrades install side by side
 AppId={{7C4F2E18-9A31-4B6D-9E0C-2F8B5A1D7C43}
@@ -155,11 +160,12 @@ var
   Target: String;
 begin
   Target := ExpandConstant('{#DataDir}');
-  RunAndWait(ExpandConstant('{sys}\icacls.exe'),
+  if not RunAndWait(ExpandConstant('{sys}\icacls.exe'),
     '"' + Target + '" /inheritance:r' +
     ' /grant:r "*S-1-5-18":(OI)(CI)F' +
     ' /grant:r "*S-1-5-32-544":(OI)(CI)F',
-    ResultCode);
+    ResultCode) or (ResultCode <> 0) then
+    RaiseException('Cannot secure the data folder. Setup cannot safely write the HTTPS private key.');
 end;
 
 // Writes the settings the service reads from its working folder.
@@ -214,9 +220,10 @@ begin
       ExpandConstant('{#DataDir}\localhost.pfx') + '" -Password "{#PfxPassword}"', ResultCode)
       or (ResultCode <> 0) then
   begin
-    MsgBox('The trusted localhost HTTPS certificate could not be created. ' +
-           'The service was not installed.', mbError, MB_OK);
-    Exit;
+    RaiseException('The localhost HTTPS certificate could not be prepared (exit code ' +
+      IntToStr(ResultCode) + '). The service was not installed. See ' +
+      ExpandConstant('{#DataDir}\localhost.certificate.log') +
+      '. If no log exists, verify that service\install-local-certificate.ps1 is installed.');
   end;
 
   if not RunAndWait(ServiceExe, 'install', ResultCode) or (ResultCode <> 0) then

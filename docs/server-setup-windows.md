@@ -143,6 +143,27 @@ port and restart it.
 **Everything returns 404.** `MULTI_USER=1` is missing from
 `app\.env`. Without it the per profile addresses are switched off.
 
+**Setup says it cannot create the certificate.** The first HTTPS installer
+omitted `service\install-local-certificate.ps1` from its payload. Install a
+build containing the packaging fix; manually creating a certificate alone does
+not complete service installation. If it still fails, read
+`C:\ProgramData\TallyMcpServer\localhost.certificate.log`. This records the
+failed operation and Windows error without logging the PFX password. If there
+is no log, check that the helper exists in the installation's `service` folder.
+
+The supported certificate creation path is the packaged PowerShell helper, run
+with administrator rights. It uses Windows `New-SelfSignedCertificate` with
+`SSLServerAuthentication`, a `localhost` DNS subject alternative name, and an
+exportable RSA/SHA-256 key. It exports an AES-256 protected PFX for Node, then
+imports only the public certificate into `LocalMachine\Root`. Existing PFX
+files are reused, and re-running setup restores missing trust. Keep the data
+folder restricted to SYSTEM and administrators; the PFX password is not a
+substitute for its file permissions.
+
+For a client with its own CA store, Windows trust alone is insufficient: configure
+that client's trust store explicitly. Never disable TLS verification. This
+certificate covers `localhost` on this machine only.
+
 **The client reports a certificate error.** Re-run the installer as an
 administrator. It creates `C:\ProgramData\TallyMcpServer\localhost.pfx` and
 adds its public certificate to the Local Machine trusted root store. Use
