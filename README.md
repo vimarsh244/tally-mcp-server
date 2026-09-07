@@ -1,4 +1,7 @@
 # Tally Prime MCP Server
+
+fork of: dhananjay1405/tally-mcp-server
+
 Tally Prime MCP (Model Context Protocol) Server implementation to feed Tally Prime ERP data to popular LLM like Claude, ChatGPT supporting MCP client. This MCP Server helps expose functionalities of Tally to LLM directly.
 
 
