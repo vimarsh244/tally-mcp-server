@@ -15,7 +15,7 @@ Security (remote HTTP deployment only, the Claude Desktop extension is not affec
 * Authorization codes, tokens and attempt counters now expire and are swept
 
 Added:
-* GitHub Actions CI, running the type check, the build, a check that the committed `dist/` and manifest are current, the tests on Node 22 and 24, and a guard against committing `.env`
+* GitHub Actions CI, running the type check, the build, a check that the committed `dist/` and manifest are current, the tests on Node 24 (the active LTS), and a guard against committing `.env`
 
 Changed:
 * Internal restructuring, with no change to the tool surface. The XML templates are now compiled from `templates/**/*.njk` instead of being kept a second time as minified strings, the tool definitions are split into modules under `src/tools/`, the Tally access code is split under `src/tally/`, and the `tools` list in `manifest.json` is generated from the registered tools
