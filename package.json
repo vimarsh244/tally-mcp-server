@@ -22,7 +22,7 @@
     "url": "git+https://github.com/dhananjay1405/tally-mcp-server.git"
   },
   "author": "",
-  "license": "ISC",
+  "license": "AGPL-3.0-only",
   "bugs": {
     "url": "https://github.com/dhananjay1405/tally-mcp-server/issues"
   },
