@@ -64,6 +64,14 @@ jobs:
         shell: pwsh
         run: .\windows\build\prepare.ps1
 
+      # Use the staged helper and bundled Node, as the installed service does.
+      # GitHub's Windows runner is disposable and elevated for machine trust tests.
+      - name: Test the staged HTTPS certificate
+        shell: powershell
+        run: |
+          & .\windows\stage\runtime\node.exe --test windows/tests/certificate-smoke.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Windows certificate smoke test failed' }
+
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --no-progress --yes

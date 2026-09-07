@@ -14,6 +14,7 @@ about producing the EXE.
 | `build/prepare.ps1` | Builds the server and stages everything the installer packs |
 | `build/dependencies.json` | Pinned versions and SHA-256 digests for Node and WinSW |
 | `build/render-release-notes.py` | Fills in the release notes template |
+| `service/install-local-certificate.ps1` | Creates, exports and trusts the localhost HTTPS certificate |
 | `service/tally-mcp-service.xml` | The WinSW service definition |
 | `installer/tally-mcp.iss` | The Inno Setup script |
 | `release-notes.md` | The release notes template |
@@ -53,6 +54,11 @@ To restage without rebuilding the TypeScript, pass `-SkipBuild`.
 
 `.github/workflows/windows-build.yml` does the same on `windows-latest`. It runs
 when a pull request touches `windows/`, and on demand from the Actions tab.
+Before compilation it runs `windows/tests/certificate-smoke.mjs` using the
+staged Node runtime and certificate helper. On the disposable elevated runner,
+it verifies a TLS handshake with certificate validation enabled, certificate
+reuse, trust repair, uninstall/reinstall, and diagnostics for a wrong password.
+The compiler also refuses a staged payload missing the certificate helper.
 Either way it attaches the installer to the run.
 
 ## Publishing a release

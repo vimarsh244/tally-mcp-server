@@ -120,6 +120,7 @@ Get-PinnedFile -Pin $dependencies.winsw -Destination (Join-Path $serviceDir 'tal
 
 # WinSW reads the configuration file that sits beside it under the same name
 Copy-Item (Join-Path $PSScriptRoot '..\service\tally-mcp-service.xml') $serviceDir
+Copy-Item (Join-Path $PSScriptRoot '..\service\install-local-certificate.ps1') $serviceDir
 
 # ---------------------------------------------------------------- report
 
