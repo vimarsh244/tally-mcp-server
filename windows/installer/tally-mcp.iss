@@ -55,7 +55,7 @@ Name: "{group}\Service log folder"; Filename: "{#DataDir}\logs"
 
 [INI]
 ; an internet shortcut, because a .lnk cannot point at a URL
-Filename: "{group}\Tally MCP Server setup.url"; Section: "InternetShortcut"; Key: "URL"; ValueData: "{code:GetSetupUrl}"
+Filename: "{group}\Tally MCP Server setup.url"; Section: "InternetShortcut"; Key: "URL"; String: "{code:GetSetupUrl}"
 
 [Run]
 Filename: "{code:GetSetupUrl}"; Description: "Open the setup page"; Flags: postinstall shellexec nowait
@@ -124,7 +124,7 @@ begin
 end;
 
 // Runs a program and waits, returning False when it could not be started.
-function RunAndWait(const FileName, Params: String; var ResultCode: Integer): Boolean;
+function RunAndWait(FileName, Params: String; var ResultCode: Integer): Boolean;
 begin
   Result := Exec(FileName, Params, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
