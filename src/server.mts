@@ -1,21 +1,21 @@
 import path from 'node:path';
 import express from 'express';
 import crypto from 'node:crypto';
-import dotenv from 'dotenv';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
+import { config } from './config.mjs';
 import { registerMcpServer } from './mcp.mjs'
 
 
-const mcpPort = parseInt(process.env.PORT || '3000');
-const mcpDomain = process.env.MCP_DOMAIN || 'http://localhost:3000';
+const mcpPort = config.port;
+const mcpDomain = config.domain;
 const __dirname = import.meta.dirname;
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const authPassword = process.env.PASSWORD || 'password';
+const authPassword = config.password;
 
 interface RegisteredClient {
   client_id: string;

@@ -1,172 +1,148 @@
+/**
+ * In-memory PGlite cache for tool results.
+ *
+ * Each MCP session gets its own store. It used to be one module level
+ * singleton, so in HTTP mode every client shared one table namespace and any
+ * client could read another client's cached data through query-database.
+ */
+
 import crypto from 'node:crypto';
 import { PGlite } from '@electric-sql/pglite';
 import { utility } from './utility.mjs';
-
-const pg = await PGlite.create('memory://');
+import { config } from './config.mjs';
+import { sqlIdentifier } from './escape.mjs';
 
 const PG_DATE_OID = 1082;
 const PG_NUMERIC_OID = 1700;
 
-const generateRandomString = (): string => {
-    return 't_' + crypto.randomUUID().replace(/-/g, '');
+const NUMERIC_TYPES = ['number', 'amount', 'quantity', 'rate'];
+
+export type OutputFormat = 'JSON Array of Objects' | 'JSON with Schema and Rows' | 'CSV' | 'Markdown Table';
+
+const sqlTypeFor = (colType: string): string => {
+    if (NUMERIC_TYPES.includes(colType)) return 'NUMERIC(18,4)';
+    if (colType === 'boolean') return 'BOOLEAN';
+    if (colType === 'date') return 'DATE';
+    return 'TEXT';
 };
 
-export async function cacheTable(lstColumnMetadata: Map<string, string>, data: any[]): Promise<string> {
-    try {
-        // no table to be created if no data is found
+const toColumnValue = (value: any, colType: string): string | number | boolean | null => {
+    if (NUMERIC_TYPES.includes(colType)) {
+        // isNaN(null) is false, so a null must be rejected before the numeric conversion
+        if (value === null || value === undefined || value === '') return null;
+        const num = Number(value);
+        return Number.isFinite(num) ? num : null;
+    }
+    if (colType === 'boolean') return typeof value === 'boolean' ? value : null;
+    if (colType === 'date') return value instanceof Date ? utility.Date.format(value, 'yyyy-MM-dd') : null;
+    return value || '';
+};
+
+const escapeCsv = (value: string): string =>
+    /[,"\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+
+const escapeMarkdown = (value: string): string => value.replace(/\|/g, '\\|');
+
+const cellToText = (value: string | number | boolean | null): string => value === null ? '' : value.toString();
+
+export class ResultCache {
+    private readonly pg: PGlite;
+    private readonly timers = new Set<NodeJS.Timeout>();
+
+    private constructor(pg: PGlite) {
+        this.pg = pg;
+    }
+
+    static async create(): Promise<ResultCache> {
+        return new ResultCache(await PGlite.create('memory://'));
+    }
+
+    /**
+     * Stores rows in a fresh table and returns its id. An empty result yields an
+     * empty id, which callers pass straight back to the model.
+     */
+    async cacheTable(lstColumnMetadata: Map<string, string>, data: any[]): Promise<string> {
         if (!data || data.length === 0)
             return '';
 
-        // generate a random table name
-        const tableId = generateRandomString();
+        const tableId = 't_' + crypto.randomUUID().replace(/-/g, '');
+        const columns = [...lstColumnMetadata];
 
-        // Quote a PostgreSQL identifier to prevent injection via column names
-        const quoteIdent = (name: string) => `"${name.replace(/"/g, '""')}"`;
+        const columnSql = columns.map(([name, type]) => `${sqlIdentifier(name)} ${sqlTypeFor(type)}`).join(', ');
+        await this.pg.exec(`CREATE TABLE ${tableId} (${columnSql});`);
 
-        let sqlCreateTable = `CREATE TABLE ${tableId} (`;
+        const insertSql = `INSERT INTO ${tableId} (${columns.map(([name]) => sqlIdentifier(name)).join(', ')})`
+            + ` VALUES (${columns.map((_, i) => `$${i + 1}`).join(', ')})`;
 
-        // iterate through each column to create table schema columns
-        for (const [colName, colType] of lstColumnMetadata) {
-            let sqlDataType = '';
-            if (colType === 'number' || colType === 'amount' || colType === 'quantity' || colType === 'rate')
-                sqlDataType = 'NUMERIC(18,4)';
-            else if (colType === 'boolean')
-                sqlDataType = 'BOOLEAN';
-            else if (colType === 'date')
-                sqlDataType = 'DATE';
-            else
-                sqlDataType = 'TEXT';
-
-            sqlCreateTable += `${quoteIdent(colName)} ${sqlDataType}, `;
-        }
-
-        sqlCreateTable = sqlCreateTable.slice(0, -2); // remove trailing comma
-        sqlCreateTable += `);`;
-        await pg.exec(sqlCreateTable);
-
-        // iterate through each row to insert data
-        const colNames = Array.from(lstColumnMetadata.keys()).map(quoteIdent).join(', ');
-        const placeholders = Array.from(lstColumnMetadata.keys()).map((_, i) => `$${i + 1}`).join(', ');
-        const insertSQL = `INSERT INTO ${tableId} (${colNames}) VALUES (${placeholders})`;
-
-        await pg.transaction(async (tx) => {
-            for (const row of data) {
-                const values = Array.from(lstColumnMetadata.entries()).map(([colName, colType]) => {
-                    const value = row[colName];
-                    if (colType === 'number' || colType === 'amount' || colType === 'quantity' || colType === 'rate') {
-                        // isNaN(null) is false, so a null must be rejected before the numeric conversion
-                        if (value === null || value === undefined || value === '')
-                            return null;
-                        const num = Number(value);
-                        return Number.isFinite(num) ? num : null;
-                    } else if (colType === 'boolean') {
-                        return typeof value === 'boolean' ? value : null;
-                    } else if (colType === 'date') {
-                        return value instanceof Date ? utility.Date.format(value, 'yyyy-MM-dd') : null;
-                    } else {
-                        return value || '';
-                    }
-                });
-                await tx.query(insertSQL, values);
-            }
+        await this.pg.transaction(async (tx) => {
+            for (const row of data)
+                await tx.query(insertSql, columns.map(([name, type]) => toColumnValue(row[name], type)));
         });
 
-        // set timeout to drop the table after 15 min
-        setTimeout(async () => await pg.exec(`DROP TABLE IF EXISTS ${tableId};`), 15 * 60 * 1000);
+        // unref so a pending drop never holds the process open
+        const timer = setTimeout(() => {
+            this.timers.delete(timer);
+            void this.pg.exec(`DROP TABLE IF EXISTS ${tableId};`).catch(() => undefined);
+        }, config.cacheTableTtlMs);
+        timer.unref?.();
+        this.timers.add(timer);
 
         return tableId;
-    } catch (err) {
-        console.error(err);
-        throw err;
+    }
+
+    async executeSQL(sql: string, format: OutputFormat = 'JSON Array of Objects'): Promise<string> {
+        // Comments are stripped only to find the leading keyword. The stripped text is
+        // what runs, so a trailing statement hidden behind a comment cannot slip through.
+        const statement = sql.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--[^\n]*/g, '').trim();
+        // WITH is deliberately not allowed: a data-modifying CTE such as
+        // `WITH x AS (DELETE FROM t RETURNING *) SELECT * FROM x` would pass a
+        // check that only looked for a leading SELECT.
+        if (!/^select\b/i.test(statement))
+            throw new Error('Only SELECT queries are permitted');
+
+        const result = await this.pg.query<unknown[]>(statement, [], { rowMode: 'array' });
+        const header = result.fields.map((f) => f.name);
+        const types = result.fields.map((f) => f.dataTypeID);
+        const rows = result.rows.map((row) => row.map((cell, c) => normalizeCell(cell, types[c])));
+
+        if (format === 'CSV')
+            return [header.map(escapeCsv).join(','), ...rows.map((r) => r.map((v) => escapeCsv(cellToText(v))).join(','))].join('\n');
+
+        if (format === 'Markdown Table')
+            return [
+                '| ' + header.map(escapeMarkdown).join(' | ') + ' |',
+                '| ' + header.map(() => '---').join(' | ') + ' |',
+                ...rows.map((r) => '| ' + r.map((v) => escapeMarkdown(cellToText(v))).join(' | ') + ' |'),
+            ].join('\n');
+
+        if (format === 'JSON with Schema and Rows')
+            return JSON.stringify({ schema: header, rows });
+
+        return JSON.stringify(rows.map((row) => Object.fromEntries(header.map((name, c) => [name, row[c]]))));
+    }
+
+    /** Drops every pending table timer. Used when a session ends. */
+    close(): void {
+        for (const timer of this.timers) clearTimeout(timer);
+        this.timers.clear();
     }
 }
 
-export async function executeSQL(sql: string, format: string = 'JSON Array of Objects'): Promise<string> {
-    try {
-        // Strip comments, then enforce SELECT-only to prevent data modification or DDL injection
-        const stripped = sql.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--[^\n]*/g, '').trim();
-        if (!/^select\b/i.test(stripped))
-            throw new Error('Only SELECT queries are permitted');
+function normalizeCell(cellValue: unknown, dataTypeID: number): string | number | boolean | null {
+    if (cellValue === null || cellValue === undefined)
+        return null;
 
-        const result = await pg.query<unknown[]>(sql, [], { rowMode: 'array' });
-        const lstHeader = result.fields.map(f => f.name);
-        const lstDataType = result.fields.map(f => f.dataTypeID);
-        const lstData = result.rows;
+    if (dataTypeID === PG_DATE_OID)
+        return cellValue instanceof Date ? cellValue.toISOString().substring(0, 10) : cellValue.toString();
 
-        const normalizeCellValue = (cellValue: unknown, dataTypeID: number): string | number | boolean | null => {
-            if (cellValue === null || cellValue === undefined)
-                return null;
-
-            if (dataTypeID === PG_DATE_OID) {
-                // PGlite returns DATE as 'YYYY-MM-DD' string; handle Date objects just in case
-                if (cellValue instanceof Date)
-                    return cellValue.toISOString().substring(0, 10);
-                return cellValue.toString();
-            }
-
-            if (dataTypeID === PG_NUMERIC_OID) {
-                // strip trailing zeros (e.g. '1.5000' -> '1.5')
-                const num = parseFloat(cellValue.toString());
-                if (!isNaN(num))
-                    return num;
-            }
-
-            if (typeof cellValue === 'boolean')
-                return cellValue;
-
-            return cellValue.toString();
-        };
-
-        const normalizedRows = lstData.map((row) => {
-            return row.map((cellValue, c) => normalizeCellValue(cellValue, lstDataType[c]));
-        });
-
-        if (format === 'CSV') {
-            const escapeCSV = (value: string): string => {
-                if (/[,"\n\r]/.test(value))
-                    return `"${value.replace(/"/g, '""')}"`;
-                return value;
-            };
-
-            let retval = lstHeader.map((h) => escapeCSV(h)).join(',') + '\n';
-            for (const row of normalizedRows) {
-                const csvRow = row.map((v) => escapeCSV(v === null ? '' : v.toString())).join(',');
-                retval += csvRow + '\n';
-            }
-            return retval.slice(0, -1);
-        }
-
-        if (format === 'Markdown Table') {
-            const escapeMarkdown = (value: string): string => value.replace(/\|/g, '\\|');
-
-            let retval = '| ' + lstHeader.map((h) => escapeMarkdown(h)).join(' | ') + ' |\n';
-            retval += '| ' + lstHeader.map(() => '---').join(' | ') + ' |\n';
-            for (const row of normalizedRows) {
-                const mdRow = row.map((v) => escapeMarkdown(v === null ? '' : v.toString())).join(' | ');
-                retval += '| ' + mdRow + ' |\n';
-            }
-            return retval.slice(0, -1);
-        }
-
-        if (format === 'JSON with Schema and Rows') {
-            return JSON.stringify({
-                schema: result.fields.map(f => f.name),
-                rows: normalizedRows
-            });
-        }
-
-        // default: JSON Array of Objects
-        const rowsAsObjects = normalizedRows.map((row) => {
-            const item: Record<string, string | number | boolean | null> = {};
-            for (let c = 0; c < lstHeader.length; c++) {
-                item[lstHeader[c]] = row[c];
-            }
-            return item;
-        });
-
-        return JSON.stringify(rowsAsObjects);
-    } catch (err) {
-        console.error(err);
-        throw err;
+    if (dataTypeID === PG_NUMERIC_OID) {
+        // strip trailing zeros, so '1.5000' reads as 1.5
+        const num = parseFloat(cellValue.toString());
+        if (!Number.isNaN(num)) return num;
     }
+
+    if (typeof cellValue === 'boolean')
+        return cellValue;
+
+    return cellValue.toString();
 }

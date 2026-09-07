@@ -53,6 +53,42 @@ The compiled files are written to the **dist** folder. Start the web-server vers
 pnpm start
 ```
 
+Run the tests
+```bash
+pnpm test
+```
+
+Check the build without writing anything, which is what CI should run
+```bash
+pnpm check
+```
+
+### What `pnpm build` does
+`pnpm build` runs three steps in order.
+
+|Step|Command|Purpose|
+|--|--|--|
+|1|`pnpm build:templates`|Compiles `templates/**/*.njk` into `src/templates.generated.mts`|
+|2|`tsc`|Compiles `src` into `dist`|
+|3|`pnpm build:manifest`|Rewrites the `tools` list and `version` in `manifest.json` from the registered tools|
+
+Both generated outputs are committed, so a plain `tsc` still works. Do not edit
+`src/templates.generated.mts` or the `tools` array in `manifest.json` by hand.
+Change the `.njk` file or the tool definition and run `pnpm build`.
+
+### Project layout
+
+|Path|Contents|
+|--|--|
+|`src/tools/`|One module per group of MCP tools, plus the shared helpers|
+|`src/tally/`|Talking to Tally: the HTTP client, collection queries, reports and master writes|
+|`src/templates.mts`|Loads and renders the compiled XML templates|
+|`src/escape.mts`|The escaping rules for TDL expressions and SQL identifiers|
+|`src/definition.mts`|Collection, field and report definitions, data only|
+|`templates/`|The Tally XML templates, authored as readable nunjucks files|
+|`scripts/`|The two build steps described above|
+|`tests/`|Tests, run with `pnpm test`|
+
 ## Supported Platform
 Implementation was tested on below AI platform
 
@@ -465,6 +501,8 @@ End-users are free to hard-code few settings which needs to be applied
 |--|--|
 |TALLY_PORT|Port Number of XML Server of Tally (*optional*, default is **9000**)|
 |TALLY_HOST|Host name or IP where XML Server is running (*optional*, default is **localhost**)|
+|TALLY_TIMEOUT|Milliseconds to wait for a reply from Tally before giving up (*optional*, default is **120000**, i.e. 2 minutes)|
+|CACHE_TABLE_TTL_MS|Milliseconds a cached result table survives before it is dropped (*optional*, default is **900000**, i.e. 15 minutes)|
 |BLOCK_WRITE|Controls if MCP completely block access of write functionality. Setting this flag to value **1** will completely hide write functionality tools from the tool list. [ **0 = Allow , 1 = Block** ] (optional, default is **0** i.e. allowed). Not applicable for Claude Desktop (as it offers graphical switch to disable write functionality)|
 |PORT|Tally MCP Server port number. Applicable only if Tally Prime MCP Server is deployed as Remote MCP server (*optional*, default is **3000**). Not applicable for Claude Desktop|
 |MCP_DOMAIN|Domain name of Tally MCP Server website (*optional*, default is https://localhost:9000). Not applicable for Claude Desktop|
