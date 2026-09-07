@@ -10,9 +10,12 @@
     "pnpm": ">=10"
   },
   "scripts": {
-    "build": "tsc",
+    "build:templates": "node scripts/build-templates.mjs",
+    "build:manifest": "node scripts/build-manifest.mjs",
+    "build": "pnpm build:templates && tsc && pnpm build:manifest",
+    "check": "tsc --noEmit && node scripts/build-manifest.mjs --check",
     "start": "node dist/server.mjs",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test \"tests/*.test.mjs\""
   },
   "repository": {
     "type": "git",

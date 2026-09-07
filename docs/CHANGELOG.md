@@ -1,5 +1,17 @@
 # Release History
 
+### Unreleased
+
+Changed:
+* Internal restructuring, with no change to the tool surface. The XML templates are now compiled from `templates/**/*.njk` instead of being kept a second time as minified strings, the tool definitions are split into modules under `src/tools/`, the Tally access code is split under `src/tally/`, and the `tools` list in `manifest.json` is generated from the registered tools
+* Every MCP session now gets its own in-memory result cache. It used to be one shared instance, so in the web-server setup one client could read another client's cached tables through *query-database*
+* A double quote in a name given to *trial-balance* or *stock-summary* is now removed rather than doubled, which is what *list-master* already did. TDL cannot escape a quote inside a string literal, so doubling it produced an expression Tally could not parse
+* Requests to Tally now time out, controlled by the optional `TALLY_TIMEOUT` environment variable, instead of waiting forever
+* Added a test suite, run with `pnpm test`
+
+Fixed:
+* `templates/push/master-ledger.njk` was missing an `{% endif %}` and did not compile. Nothing loaded it, so the fault went unnoticed while the working copy of the same template lived in the source as a minified string
+
 ### Version: v7.6 [04-Sep-2026]
 Fixed:
 * Tool *ledger-account* with instance where the target ledger being queried is used multiple times in a single voucher was not being aggregated leading to incorret data being returned as reporting in [#28](https://github.com/dhananjay1405/tally-mcp-server/issues/28) is now fixed
