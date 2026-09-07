@@ -30,6 +30,29 @@ Last updated: version **7.6** [04-Sep-2026]
 
 Refer docs/CHANGELOG.md for details
 
+## Build from source
+This project uses **pnpm** as package manager. It is needed only if you clone the repository and build the code yourself. Users of the zip file or the extension can skip this section.
+
+Install pnpm (Node JS 22 or higher is required)
+```bash
+npm install -g pnpm
+```
+Corepack is an alternative, which ships with Node JS
+```bash
+corepack enable pnpm
+```
+
+Install the dependencies and build the project
+```bash
+pnpm install
+pnpm build
+```
+
+The compiled files are written to the **dist** folder. Start the web-server version with
+```bash
+pnpm start
+```
+
 ## Supported Platform
 Implementation was tested on below AI platform
 
