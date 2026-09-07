@@ -36,9 +36,31 @@ To set the company data path, use **Alt+Y (Data) &gt; Data Path** in that copy o
 Tally. The MCP server never opens the data files itself. It only talks to a
 running Tally, so the path is a Tally setting.
 
+## Which file to download
+
+A release carries two installers.
+
+| File | Install it on |
+|---|---|
+| `TallyMcpServer-Setup-<version>-x64.exe` | 64-bit Windows. **Use this one.** |
+| `TallyMcpServer-Setup-<version>-x86.exe` | 32-bit Windows only |
+
+Every Windows Server edition from 2016 on is 64-bit only, so take the 64-bit file
+unless you are installing on an old 32-bit copy of Windows.
+
+Both carry their own copy of Node, so nothing has to be installed first. The
+64-bit build uses Node 24 and the 32-bit build uses Node 22, which is the last
+line that ships a 32-bit Windows build.
+
+Check what you downloaded against the digest in the release notes:
+
+```powershell
+Get-FileHash .\TallyMcpServer-Setup-7.6.0-x64.exe -Algorithm SHA256
+```
+
 ## Install
 
-1. Run `TallyMcpServer-Setup-<version>.exe` as an administrator.
+1. Run the setup EXE as an administrator.
 2. Accept the install folder.
 3. Choose the listening port. The default is **9500**. Do not use 9000 to 9999:
    that range belongs to Tally.

@@ -1,22 +1,37 @@
 ; Inno Setup script for the Tally MCP Server Windows service.
 ;
 ; Compile with:
-;   iscc /DAppVersion=7.6.0 windows\installer\tally-mcp.iss
+;   iscc /DAppVersion=7.6.0 /DArch=x64 windows\installer\tally-mcp.iss
 ;
-; It expects windows\stage to be filled by windows\build\prepare.ps1.
+; It expects windows\stage-<arch> to be filled by windows\build\prepare.ps1
+; for the same architecture.
 
 #ifndef AppVersion
   #define AppVersion "0.0.0"
+#endif
+
+#ifndef Arch
+  #define Arch "x64"
+#endif
+
+#if Arch == "x64"
+  #define ArchLabel "64-bit"
+#elif Arch == "x86"
+  #define ArchLabel "32-bit"
+#else
+  #error Arch must be x64 or x86
 #endif
 
 #define AppName        "Tally MCP Server"
 #define ServiceName    "TallyMcpServer"
 #define DataDir        "{commonappdata}\TallyMcpServer"
 #define DefaultPort    "9500"
-#define StageDir       "..\stage"
+#define StageDir       "..\stage-" + Arch
 
 [Setup]
-; keep this GUID for the life of the product, or upgrades install side by side
+; One GUID for both architectures, on purpose. Each build registers the same
+; Windows service name, so two of them could never run side by side anyway.
+; Sharing the id makes installing one over the other a clean replacement.
 AppId={{7C4F2E18-9A31-4B6D-9E0C-2F8B5A1D7C43}
 AppName={#AppName}
 AppVersion={#AppVersion}
@@ -25,15 +40,21 @@ DefaultDirName={autopf}\Tally MCP Server
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 OutputDir=..\..\build-output
-OutputBaseFilename=TallyMcpServer-Setup-{#AppVersion}
+OutputBaseFilename=TallyMcpServer-Setup-{#AppVersion}-{#Arch}
 Compression=lzma2/max
 SolidCompression=yes
 ; the service, Program Files and the data folder ACL all need elevation
 PrivilegesRequired=admin
+#if Arch == "x64"
+; refuses a 32-bit Windows, which could not run this node.exe
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+#else
+; runs on 32-bit Windows, and on 64-bit Windows as a 32-bit program
+ArchitecturesAllowed=x86compatible
+#endif
 WizardStyle=modern
-UninstallDisplayName={#AppName}
+UninstallDisplayName={#AppName} ({#ArchLabel})
 LicenseFile={#StageDir}\app\LICENSE
 
 [Languages]
