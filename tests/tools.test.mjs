@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
@@ -107,7 +108,7 @@ test('an unreachable Tally produces guidance, not an empty object', async () => 
         console.log(JSON.stringify({ isError: r.isError === true, text: r.content[0].text }));
     `;
     const { stdout } = await run(process.execPath, ['--input-type=module', '-e', script], {
-        cwd: new URL('..', import.meta.url).pathname,
+        cwd: fileURLToPath(new URL('..', import.meta.url)),
         env: { ...process.env, TALLY_PORT: '9099' },
     });
     const { isError, text } = JSON.parse(stdout.trim());
@@ -131,7 +132,7 @@ test('BLOCK_WRITE hides the write tools', async () => {
         console.log(Object.keys(s._registeredTools).length);
     `;
     const { stdout } = await run(process.execPath, ['--input-type=module', '-e', script], {
-        cwd: new URL('..', import.meta.url).pathname,
+        cwd: fileURLToPath(new URL('..', import.meta.url)),
         env: { ...process.env, BLOCK_WRITE: '1' },
     });
     assert.equal(stdout.trim(), '18', 'the two write tools should be hidden');

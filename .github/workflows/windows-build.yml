@@ -64,6 +64,10 @@ jobs:
         shell: pwsh
         run: .\windows\build\prepare.ps1
 
+      - name: Run server tests on Windows
+        shell: pwsh
+        run: pnpm test
+
       # Use the staged helper and bundled Node, as the installed service does.
       # GitHub's Windows runner is disposable and elevated for machine trust tests.
       - name: Test the staged HTTPS certificate
