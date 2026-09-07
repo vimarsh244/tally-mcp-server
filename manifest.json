@@ -116,6 +116,10 @@
       "description": "create or update ledger master data in Tally Prime, returns success count of created and / or altered records"
     },
     {
+      "name": "delete-master",
+      "description": "deletes a master object from selected collection in Tally Prime and returns success count of deleted records"
+    },
+    {
       "name": "set-company",
       "description": "sets the active company context in Tally Prime. This changes the global company context used by Tally for subsequent operations and report queries"
     },

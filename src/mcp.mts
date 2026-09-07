@@ -12,11 +12,18 @@ const isWriteBlocked = process.env.BLOCK_WRITE === '1';
 
 const lstCollections = lstCollectionFields.map((item) => item.collection);
 
+// JSON.stringify() on an Error yields '{}', which loses the message. Always extract the text.
+const toErrorMessage = (err: unknown): string => {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  return JSON.stringify(err) ?? 'Unknown error';
+};
+
 export async function registerMcpServer(): Promise<McpServer> {
   const mcpServer = new McpServer({
     name: 'Tally Prime MCP Server',
     title: 'Tally Prime',
-    version: '7.0.0'
+    version: '7.6.0'
   });
 
 
@@ -222,7 +229,7 @@ export async function registerMcpServer(): Promise<McpServer> {
       } catch (err) {
         return {
           isError: true,
-          content: [{ type: 'text', text: JSON.stringify(err) }]
+          content: [{ type: 'text', text: toErrorMessage(err) }]
         };
       }
     }
@@ -263,7 +270,7 @@ export async function registerMcpServer(): Promise<McpServer> {
       } catch (err) {
         return {
           isError: true,
-          content: [{ type: 'text', text: JSON.stringify(err) }]
+          content: [{ type: 'text', text: toErrorMessage(err) }]
         };
       }
     }
@@ -293,7 +300,7 @@ export async function registerMcpServer(): Promise<McpServer> {
       } catch (err) {
         return {
           isError: true,
-          content: [{ type: 'text', text: JSON.stringify(err) }]
+          content: [{ type: 'text', text: toErrorMessage(err) }]
         };
       }
     }
@@ -331,7 +338,7 @@ export async function registerMcpServer(): Promise<McpServer> {
       } catch (err) {
         return {
           isError: true,
-          content: [{ type: 'text', text: JSON.stringify(err) }]
+          content: [{ type: 'text', text: toErrorMessage(err) }]
         };
       }
     }
@@ -383,7 +390,7 @@ export async function registerMcpServer(): Promise<McpServer> {
       } catch (err) {
         return {
           isError: true,
-          content: [{ type: 'text', text: JSON.stringify(err) }]
+          content: [{ type: 'text', text: toErrorMessage(err) }]
         };
       }
     }
@@ -439,7 +446,7 @@ export async function registerMcpServer(): Promise<McpServer> {
       } catch (err) {
         return {
           isError: true,
-          content: [{ type: 'text', text: JSON.stringify(err) }]
+          content: [{ type: 'text', text: toErrorMessage(err) }]
         };
       }
     }
@@ -476,7 +483,7 @@ export async function registerMcpServer(): Promise<McpServer> {
       } catch (err) {
         return {
           isError: true,
-          content: [{ type: 'text', text: JSON.stringify(err) }]
+          content: [{ type: 'text', text: toErrorMessage(err) }]
         };
       }
     }
@@ -510,7 +517,7 @@ export async function registerMcpServer(): Promise<McpServer> {
       } catch (err) {
         return {
           isError: true,
-          content: [{ type: 'text', text: JSON.stringify(err) }]
+          content: [{ type: 'text', text: toErrorMessage(err) }]
         };
       }
     }
@@ -541,7 +548,7 @@ export async function registerMcpServer(): Promise<McpServer> {
       } catch (err) {
         return {
           isError: true,
-          content: [{ type: 'text', text: JSON.stringify(err) }]
+          content: [{ type: 'text', text: toErrorMessage(err) }]
         };
       }
     }
@@ -577,7 +584,7 @@ export async function registerMcpServer(): Promise<McpServer> {
       } catch (err) {
         return {
           isError: true,
-          content: [{ type: 'text', text: JSON.stringify(err) }]
+          content: [{ type: 'text', text: toErrorMessage(err) }]
         };
       }
     }
@@ -629,6 +636,8 @@ export async function registerMcpServer(): Promise<McpServer> {
           const lastItem = resp.data.pop();
           resp.data.unshift(lastItem);
         }
+        // the report emits the field as party_ledger, the documented column name is party_name
+        resp.data = renameObjectArrayProperties(resp.data, new Map<string, string>([['party_ledger', 'party_name']]));
         const tableId = await cacheTable(new Map([['guid', 'string'], ['date', 'date'], ['voucher_type', 'string'], ['voucher_number', 'string'], ['alternate_ledger', 'string'], ['party_name', 'string'], ['amount', 'number'], ['narration', 'string']]), resp.data);
         return {
           content: [{ type: 'text', text: JSON.stringify({ tableID: tableId }) }]
@@ -683,7 +692,9 @@ export async function registerMcpServer(): Promise<McpServer> {
           const lastItem = resp.data.pop();
           resp.data.unshift(lastItem);
         }
-        const tableId = await cacheTable(new Map([['date', 'date'], ['voucher_type', 'string'], ['voucher_number', 'string'], ['party_ledger', 'string'], ['quantity', 'number'], ['amount', 'number'], ['narration', 'string'], ['tracking_number', 'string'], ['voucher_category', 'string']]), resp.data);
+        // the report emits the field as party_ledger, the documented column name is party_name
+        resp.data = renameObjectArrayProperties(resp.data, new Map<string, string>([['party_ledger', 'party_name']]));
+        const tableId = await cacheTable(new Map([['date', 'date'], ['voucher_type', 'string'], ['voucher_number', 'string'], ['party_name', 'string'], ['quantity', 'number'], ['amount', 'number'], ['narration', 'string'], ['tracking_number', 'string'], ['voucher_category', 'string']]), resp.data);
         return {
           content: [{ type: 'text', text: JSON.stringify({ tableID: tableId }) }]
         };
@@ -701,8 +712,10 @@ export async function registerMcpServer(): Promise<McpServer> {
         companyName: z.string().describe('company name to set as active, validate it using list-master tool with collection as company')
       },
       annotations: {
-        readOnlyHint: true,
-        openWorldHint: false
+        readOnlyHint: false,
+        openWorldHint: false,
+        destructiveHint: false,
+        idempotentHint: true
       }
     },
     async (args) => {
@@ -712,7 +725,7 @@ export async function registerMcpServer(): Promise<McpServer> {
         return { content: [{ type: 'text', text: JSON.stringify('OK') }] };
       } catch (err) {
         return {
-          isError: true, content: [{ type: 'text', text: JSON.stringify(err) }]
+          isError: true, content: [{ type: 'text', text: toErrorMessage(err) }]
         };
       }
 
@@ -729,8 +742,10 @@ export async function registerMcpServer(): Promise<McpServer> {
         toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('end date of the period')
       },
       annotations: {
-        readOnlyHint: true,
-        openWorldHint: false
+        readOnlyHint: false,
+        openWorldHint: false,
+        destructiveHint: false,
+        idempotentHint: true
       }
     },
     async (args) => {
@@ -742,7 +757,7 @@ export async function registerMcpServer(): Promise<McpServer> {
         return { content: [{ type: 'text', text: JSON.stringify('OK') }] };
       } catch (err) {
         return {
-          isError: true, content: [{ type: 'text', text: JSON.stringify(err) }]
+          isError: true, content: [{ type: 'text', text: toErrorMessage(err) }]
         };
       }
     }
@@ -772,7 +787,7 @@ export async function registerMcpServer(): Promise<McpServer> {
               pincode: z.string().regex(/^\d{6}$/).optional().describe('pincode for mailing details 6 digit number, set it blank to reset it, set it undefined to keep it unchanged'),
             }).optional().describe('optional mailing details for the ledger'),
             gstRegistrationDetails: z.object({
-              gstin: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('GSTIN or GST number'),
+              gstin: z.string().regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]{3}$/).describe('GSTIN or GST number, 15 characters: 2 digit state code, 10 character PAN, then 3 characters'),
               registrationType: z.enum(['Composition', 'Regular', 'Unregistered/Consumer', 'Government entity / TDS', 'Regular - SEZ', 'Regular-Deemed Exporter', 'Regular-Exports (EOU)', 'e-Commerce Operator', 'Input Service Distributor', 'Embassy/UN Body', 'Non-Resident Taxpayer']).optional().describe('GST registration type'),
               placeOfSupply: z.string().optional().describe('place of supply for GST, validate it using query-option-values tool with input optionName as country-state with value of state property, set it blank to reset it to Not Applicable, set it undefined to keep it unchanged'),
             }).optional().describe('optional GST registration details for the ledger, applicable only if country in mailing details is India'),
@@ -802,11 +817,18 @@ export async function registerMcpServer(): Promise<McpServer> {
               }
             }
 
-            if (!args.targetCompany) { //choose Active company
-              booksBeginFrom = resultBooksBeginFrom.filter((item) => item.IsActiveCompany)[0].BooksFrom;
-            } else { //choose specified target company
-              booksBeginFrom = resultBooksBeginFrom.filter((item) => item.Name === args.targetCompany)[0].BooksFrom;
+            const objCompany = args.targetCompany
+              ? resultBooksBeginFrom.find((item) => item.Name === args.targetCompany) //choose specified target company
+              : resultBooksBeginFrom.find((item) => item.IsActiveCompany); //choose Active company
+
+            if (!objCompany) {
+              return {
+                isError: true,
+                content: [{ type: 'text', text: args.targetCompany ? `No company found with the name ${args.targetCompany}. Kindly validate it using list-master tool with collection as company` : 'No active company found in Tally. Kindly open a company or pass targetCompany' }]
+              }
             }
+
+            booksBeginFrom = objCompany.BooksFrom;
 
             args.masters.forEach((master) => {
               let objLedger: any = {};
@@ -852,7 +874,7 @@ export async function registerMcpServer(): Promise<McpServer> {
         } catch (err) {
           return {
             isError: true,
-            content: [{ type: 'text', text: JSON.stringify(err) }]
+            content: [{ type: 'text', text: toErrorMessage(err) }]
           };
         }
 
@@ -906,7 +928,7 @@ export async function registerMcpServer(): Promise<McpServer> {
         } catch (err) {
           return {
             isError: true,
-            content: [{ type: 'text', text: JSON.stringify(err) }]
+            content: [{ type: 'text', text: toErrorMessage(err) }]
           };
         }
       }

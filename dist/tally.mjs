@@ -75,11 +75,9 @@ export async function fetchReport(targetReport, inputParams) {
             retval.error = 'Invalid report';
     }
     catch (err) {
-        retval.error = 'Server exception';
+        retval.error = err instanceof Error ? err.message : 'Server exception';
     }
-    finally {
-        return retval;
-    }
+    return retval;
 }
 export async function queryCollection(targetCollection, lstFields, lstFilters, targetCompany, fromDate, toDate) {
     let retval = [];
@@ -93,7 +91,9 @@ export async function queryCollection(targetCollection, lstFields, lstFilters, t
         if (toDate)
             objTemplateArgs.set('toDate', toDate);
         objTemplateArgs.set('collection', targetCollection);
-        let objCollection = lstCollectionFields.filter(c => c.collection == targetCollection)[0]; //load collection definition
+        let objCollection = lstCollectionFields.find(c => c.collection == targetCollection); //load collection definition
+        if (!objCollection)
+            throw new Error(`Unknown collection [${targetCollection}]`);
         let lstQueryFields = objCollection.fields.filter(f => lstFields.includes(f.name)); //filter fields based on user query
         objTemplateArgs.set('fields', lstQueryFields); //filter fields queried by user
         if (lstFilters && lstFilters.size > 0) {
@@ -118,7 +118,7 @@ export async function queryCollection(targetCollection, lstFields, lstFilters, t
             for (const rowObj of resultObj['DATA']['ROW']) {
                 let o = new Object();
                 for (const field of lstQueryFields) {
-                    let _value = rowObj[field.name.toUpperCase()].toString();
+                    let _value = (rowObj[field.name.toUpperCase()] ?? '').toString();
                     let value = undefined;
                     if (field.datatype == 'boolean')
                         value = _value == 'Yes';
@@ -234,9 +234,10 @@ async function postTallyXML(xml) {
                 });
             });
             req.on('error', (reqError) => {
-                let errorType = reqError['message'] || reqError['code'];
-                if (errorType === 'ECONNREFUSED')
-                    reject('Unable to connect to Tally. Ensure Tally is running and XML server is enabled on port ' + tally_port + ' by going to Help (F1) > Settings > Connectivity in Tally and setting Client / Server configuration, set Tally Prime is action as Server');
+                // reqError.message reads 'connect ECONNREFUSED 127.0.0.1:9000', so the
+                // code must be tested, not the message, or this guidance never shows
+                if (reqError.code === 'ECONNREFUSED')
+                    reject(new Error('Unable to connect to Tally. Ensure Tally is running and XML server is enabled on port ' + tally_port + ' by going to Help (F1) > Settings > Connectivity in Tally and setting Client / Server configuration, set Tally Prime is action as Server'));
                 else
                     reject(reqError);
             });
@@ -248,103 +249,98 @@ async function postTallyXML(xml) {
         }
     });
 }
-function extractReport(reportConfig, reportInputParams) {
-    return new Promise(async (resolve, reject) => {
-        let retval = {
-            data: undefined
-        };
-        try {
-            let parseString = (iStr) => {
-                iStr = utility.String.unescapeHTML(iStr);
-                iStr = iStr.replace(/&#\d+;/g, ''); //remove unreadable characters;
-                return iStr;
-            };
-            let parseDate = (iDate) => {
-                if (/^\d\d\d\d-\d\d-\d\d$/.test(iDate))
-                    return utility.Date.parse(iDate, 'yyyy-MM-dd');
-                else if (/^\d?\d-\w\w\w-\d\d\d\d$/.test(iDate))
-                    return utility.Date.parse(iDate, 'd-MMM-yyyy');
-                else if (/^\d?\d-\w\w\w-\d\d$/.test(iDate)) {
-                    return utility.Date.parse(iDate, 'd-MMM-yy');
+async function extractReport(reportConfig, reportInputParams) {
+    let retval = {
+        data: undefined
+    };
+    let parseString = (iStr) => {
+        iStr = utility.String.unescapeHTML(iStr);
+        iStr = iStr.replace(/&#\d+;/g, ''); //remove unreadable characters;
+        return iStr;
+    };
+    let parseDate = (iDate) => {
+        if (/^\d\d\d\d-\d\d-\d\d$/.test(iDate))
+            return utility.Date.parse(iDate, 'yyyy-MM-dd');
+        else if (/^\d?\d-\w\w\w-\d\d\d\d$/.test(iDate))
+            return utility.Date.parse(iDate, 'd-MMM-yyyy');
+        else if (/^\d?\d-\w\w\w-\d\d$/.test(iDate)) {
+            return utility.Date.parse(iDate, 'd-MMM-yy');
+        }
+        else
+            return null;
+    };
+    const parseQuantity = (iStr) => {
+        let regPatOutput = /^(-?\d+\.\d+|-?\d+)\s.+/g.exec(iStr);
+        if (regPatOutput && typeof regPatOutput[1] == 'string' && !isNaN(parseFloat(regPatOutput[1])))
+            return parseFloat(regPatOutput[1]);
+        else
+            return 0;
+    };
+    const parseNumber = (iNum) => {
+        if (!iNum)
+            return 0;
+        else
+            return parseFloat(iNum.replace(/[\(\),]+/g, ''));
+    };
+    const processRows = (targetObjRows, targetConfigFields) => {
+        let data = [];
+        let rowCount = targetObjRows.length;
+        //loop through rows
+        for (let r = 0; r < rowCount; r++) {
+            let o = new Object();
+            //loop through each field and extract value
+            for (const prop of targetConfigFields) {
+                let tagName = prop.name.toUpperCase();
+                let datatype = prop.datatype;
+                let fieldName = prop.name;
+                let value = undefined;
+                let _value = targetObjRows[r][tagName];
+                if (_value !== undefined) {
+                    if (datatype == 'number')
+                        value = parseNumber(_value);
+                    else if (datatype == 'date')
+                        value = parseDate(_value);
+                    else if (datatype == 'boolean')
+                        value = _value == '1';
+                    else if (datatype == 'quantity')
+                        value = parseQuantity(_value);
+                    else
+                        value = parseString(_value);
                 }
-                else
-                    return null;
-            };
-            const parseQuantity = (iStr) => {
-                let regPatOutput = /^(-?\d+\.\d+|-?\d+)\s.+/g.exec(iStr);
-                if (regPatOutput && typeof regPatOutput[1] == 'string' && !isNaN(parseFloat(regPatOutput[1])))
-                    return parseFloat(regPatOutput[1]);
-                else
-                    return 0;
-            };
-            const parseNumber = (iNum) => {
-                if (!iNum)
-                    return 0;
-                else
-                    return parseFloat(iNum.replace(/[\(\),]+/g, ''));
-            };
-            const processRows = (targetObjRows, targetConfigFields) => {
-                let data = [];
-                let rowCount = targetObjRows.length;
-                //loop through rows
-                for (let r = 0; r < rowCount; r++) {
-                    let o = new Object();
-                    //loop through each field and extract value
-                    for (const prop of targetConfigFields) {
-                        let tagName = prop.name.toUpperCase();
-                        let datatype = prop.datatype;
-                        let fieldName = prop.name;
-                        let value = undefined;
-                        let _value = targetObjRows[r][tagName];
-                        if (_value !== undefined) {
-                            if (datatype == 'number')
-                                value = parseNumber(_value);
-                            else if (datatype == 'date')
-                                value = parseDate(_value);
-                            else if (datatype == 'boolean')
-                                value = _value == '1';
-                            else if (datatype == 'quantity')
-                                value = parseQuantity(_value);
-                            else
-                                value = parseString(_value);
-                        }
-                        Object.defineProperty(o, fieldName, { enumerable: true, value });
-                    }
-                    //add row to array
-                    data.push(o);
-                }
-                return data;
-            };
-            let tmplXML = lstReportXml.get(reportConfig.name) || '';
-            let respContent = await sendTallyXml(tmplXML, reportInputParams);
-            if (!respContent) {
-                retval.error = 'Empty data received from Tally';
-                return;
+                Object.defineProperty(o, fieldName, { enumerable: true, value });
             }
-            else if (respContent.startsWith('<EXCEPTION>')) {
-                let regErr = respContent.match(/<EXCEPTION>(.+)<\/EXCEPTION>/g);
-                let errorMessage = 'Unknown error';
-                if (regErr && regErr[0])
-                    errorMessage = regErr[0].substring(11, regErr[0].length - 12);
-                retval.error = errorMessage;
-                return;
-            }
-            let xmlParser = new XMLParser({
-                parseTagValue: false,
-                isArray(tagName) {
-                    return (tagName == 'ROW' || tagName.endsWith('.LIST'));
-                },
-            });
-            let resultObj = xmlParser.parse(respContent);
-            let data = processRows(resultObj['DATA']['ROW'], reportConfig.output);
-            retval.data = data;
+            //add row to array
+            data.push(o);
         }
-        catch (err) {
-            throw err;
-        }
-        finally {
-            resolve(retval);
-        }
+        return data;
+    };
+    let tmplXML = lstReportXml.get(reportConfig.name) || '';
+    let respContent = await sendTallyXml(tmplXML, reportInputParams);
+    if (!respContent) {
+        retval.error = 'Empty data received from Tally';
+        return retval;
+    }
+    else if (respContent.startsWith('<EXCEPTION>')) {
+        let regErr = respContent.match(/<EXCEPTION>(.+)<\/EXCEPTION>/g);
+        let errorMessage = 'Unknown error';
+        if (regErr && regErr[0])
+            errorMessage = regErr[0].substring(11, regErr[0].length - 12);
+        retval.error = errorMessage;
+        return retval;
+    }
+    let xmlParser = new XMLParser({
+        parseTagValue: false,
+        isArray(tagName) {
+            return (tagName == 'ROW' || tagName.endsWith('.LIST'));
+        },
     });
+    let resultObj = xmlParser.parse(respContent);
+    let lstRows = resultObj?.['DATA']?.['ROW'];
+    if (!Array.isArray(lstRows)) {
+        retval.error = 'Unexpected response structure received from Tally';
+        return retval;
+    }
+    retval.data = processRows(lstRows, reportConfig.output);
+    return retval;
 }
 //# sourceMappingURL=tally.mjs.map
