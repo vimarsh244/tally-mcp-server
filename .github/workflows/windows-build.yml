@@ -2,6 +2,8 @@ name: Windows installer
 
 # The build is heavy and downloads a Node runtime, so it does not run on every
 # push. It runs when a pull request touches the packaging, and on demand.
+#
+# Running it by hand can also publish a GitHub Release carrying the installer.
 on:
   pull_request:
     paths:
@@ -9,10 +11,22 @@ on:
       - '.github/workflows/windows-build.yml'
   workflow_dispatch:
     inputs:
-      upload:
-        description: 'Attach the setup EXE to the run as an artifact'
+      release:
+        description: 'Publish a GitHub Release with the installer'
         type: boolean
-        default: true
+        default: false
+      tag:
+        description: 'Release tag. Leave empty for v<version from package.json>'
+        type: string
+        default: ''
+      draft:
+        description: 'Create it as a draft, so you can read it before it goes out'
+        type: boolean
+        default: false
+      prerelease:
+        description: 'Mark it as a prerelease'
+        type: boolean
+        default: false
 
 concurrency:
   group: windows-${{ github.ref }}
@@ -64,13 +78,108 @@ jobs:
 
       - name: Report what was produced
         shell: pwsh
-        run: Get-ChildItem build-output | Format-Table Name, @{ Name = 'MB'; Expression = { [math]::Round($_.Length / 1MB, 1) } }
+        run: |
+          Get-ChildItem build-output -Filter *.exe | ForEach-Object {
+              $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+              Write-Host ("{0}  {1:N1} MB  {2}" -f $_.Name, ($_.Length / 1MB), $hash)
+          }
 
       - name: Upload the setup EXE
-        if: github.event_name != 'workflow_dispatch' || inputs.upload
         uses: actions/upload-artifact@v4
         with:
-          name: TallyMcpServer-Setup-${{ steps.version.outputs.value }}
+          name: setup
           path: build-output/*.exe
           if-no-files-found: error
           retention-days: 30
+
+  release:
+    name: Publish the release
+    needs: installer
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.release }}
+    runs-on: ubuntu-latest
+
+    permissions:
+      # the only job that writes anything back to the repository
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collect the installer
+        uses: actions/download-artifact@v4
+        with:
+          name: setup
+          path: installers
+
+      - name: Work out the tag
+        id: meta
+        env:
+          # through the environment, so a tag with a quote in it cannot break
+          # out of the script
+          TAG_INPUT: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          tag="$TAG_INPUT"
+          [ -n "$tag" ] || tag="v$version"
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Release $tag for version $version"
+
+      # written before the notes, so its digest is the one the notes quote
+      - name: Write the checksum file
+        working-directory: installers
+        run: |
+          set -euo pipefail
+          sha256sum *.exe > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Build the release notes
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          python3 windows/build/render-release-notes.py \
+            --version "$VERSION" \
+            --tag "$TAG" \
+            --repo-url "$REPO_URL" \
+            --installer-dir installers \
+            --out release-notes.md
+          cat release-notes.md
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          TARGET: ${{ github.sha }}
+          DRAFT: ${{ inputs.draft }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+
+          # written as ifs, not 'test && flags+=', because under set -e a false
+          # test on the last line of that form ends the whole step
+          flags=()
+          if [ "$DRAFT" = 'true' ]; then flags+=(--draft); fi
+          if [ "$PRERELEASE" = 'true' ]; then flags+=(--prerelease); fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # a re-run replaces what is there rather than failing on the tag
+            echo "$TAG exists, replacing its notes and assets"
+            gh release edit "$TAG" \
+              --title "Tally MCP Server $VERSION for Windows" \
+              --notes-file release-notes.md
+            gh release upload "$TAG" installers/* --clobber
+          else
+            gh release create "$TAG" installers/* \
+              --target "$TARGET" \
+              --title "Tally MCP Server $VERSION for Windows" \
+              --notes-file release-notes.md \
+              "${flags[@]}"
+          fi
+
+          echo "Released: $(gh release view "$TAG" --json url --jq .url)"

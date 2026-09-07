@@ -38,6 +38,9 @@ running Tally, so the path is a Tally setting.
 
 ## Install
 
+The installer is 64-bit only. Every Windows Server edition from 2016 on is
+64-bit, and Node stopped shipping a 32-bit Windows build after version 22.
+
 1. Run `TallyMcpServer-Setup-<version>.exe` as an administrator.
 2. Accept the install folder.
 3. Choose the listening port. The default is **9500**. Do not use 9000 to 9999:

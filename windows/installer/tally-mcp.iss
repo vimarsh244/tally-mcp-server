@@ -30,6 +30,8 @@ Compression=lzma2/max
 SolidCompression=yes
 ; the service, Program Files and the data folder ACL all need elevation
 PrivilegesRequired=admin
+; 64-bit only: Node stopped shipping a 32-bit Windows build after version 22,
+; and every Windows Server edition from 2016 on is 64-bit anyway
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 WizardStyle=modern

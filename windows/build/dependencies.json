@@ -1,5 +1,5 @@
 {
-  "comment": "Pinned downloads for the Windows payload. Every file is checked against its digest before it is used. Update a version and its sha256 together.",
+  "comment": "Pinned downloads for the Windows payload. Every file is checked against its digest before it is used, so a version and its sha256 must be changed together. windows/README.md says how to read a new digest.",
   "node": {
     "version": "24.20.0",
     "url": "https://nodejs.org/dist/v{version}/win-x64/node.exe",

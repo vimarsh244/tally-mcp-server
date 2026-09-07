@@ -33,6 +33,8 @@ function Write-Step([string] $message) {
     Write-Host "==> $message" -ForegroundColor Cyan
 }
 
+Write-Step "Node $($dependencies.node.version), WinSW $($dependencies.winsw.version)"
+
 <# Downloads a file and refuses it unless the digest matches. #>
 function Get-PinnedFile {
     param(

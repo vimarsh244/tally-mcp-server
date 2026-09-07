@@ -13,8 +13,10 @@ about producing the EXE.
 |---|---|
 | `build/prepare.ps1` | Builds the server and stages everything the installer packs |
 | `build/dependencies.json` | Pinned versions and SHA-256 digests for Node and WinSW |
+| `build/render-release-notes.py` | Fills in the release notes template |
 | `service/tally-mcp-service.xml` | The WinSW service definition |
 | `installer/tally-mcp.iss` | The Inno Setup script |
+| `release-notes.md` | The release notes template |
 | `stage/` | Written by `prepare.ps1`. Not committed |
 
 ## Why there is no single binary
@@ -42,13 +44,47 @@ $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
 
 The EXE lands in `build-output\`.
 
+The build is 64-bit only. Node stopped shipping a 32-bit Windows build after
+version 22, and every Windows Server edition from 2016 on is 64-bit.
+
 To restage without rebuilding the TypeScript, pass `-SkipBuild`.
 
 ## In CI
 
 `.github/workflows/windows-build.yml` does the same on `windows-latest`. It runs
-when a pull request touches `windows/`, and on demand from the Actions tab. It
-attaches the setup EXE to the run.
+when a pull request touches `windows/`, and on demand from the Actions tab.
+Either way it attaches the installer to the run.
+
+## Publishing a release
+
+Run the workflow by hand from the Actions tab and tick **Publish a GitHub Release
+with the installer**. It then:
+
+1. builds the setup EXE,
+2. writes a `SHA256SUMS.txt` for it,
+3. fills in `release-notes.md` with the version, the file name, its digest and
+   size, and the pinned Node and WinSW versions,
+4. creates the release at the commit the workflow ran on.
+
+The other inputs:
+
+| Input | What it does |
+|---|---|
+| Release tag | Defaults to `v<version from package.json>` |
+| Draft | Creates it as a draft so you can read it before it goes out |
+| Prerelease | Marks it as a prerelease |
+
+Running it again on the same tag replaces the notes and the assets rather than
+failing, so a bad release can be fixed by re-running.
+
+To check how the notes will read without running anything:
+
+```bash
+python3 windows/build/render-release-notes.py \
+    --version 7.6.0 --tag v7.6.0 \
+    --repo-url https://github.com/vimarsh244/tally-mcp-server \
+    --installer-dir build-output
+```
 
 ## Updating a pinned download
 
