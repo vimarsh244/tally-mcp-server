@@ -11,23 +11,15 @@
     Every download is checked against the digest in dependencies.json before it
     is used.
 
-.PARAMETER Arch
-    Which Windows architecture to stage for. The server payload is identical
-    either way, because nothing in it is a native module: only node.exe and the
-    service wrapper differ.
-
 .PARAMETER StageDir
-    Where the payload is written. Removed and remade on every run. Defaults to
-    a folder named after the architecture, so both can be staged side by side.
+    Where the payload is written. Removed and remade on every run.
 
 .PARAMETER SkipBuild
     Use the committed dist/ as it is, instead of running the build first.
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('x64', 'x86')]
-    [string] $Arch = 'x64',
-    [string] $StageDir = (Join-Path $PSScriptRoot "..\stage-$Arch"),
+    [string] $StageDir = (Join-Path $PSScriptRoot '..\stage'),
     [switch] $SkipBuild
 )
 
@@ -37,15 +29,11 @@ Set-StrictMode -Version Latest
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $dependencies = Get-Content (Join-Path $PSScriptRoot 'dependencies.json') -Raw | ConvertFrom-Json
 
-$pins = $dependencies.architectures.PSObject.Properties[$Arch]
-if (-not $pins) { throw "dependencies.json has no pins for $Arch" }
-$pins = $pins.Value
-
 function Write-Step([string] $message) {
     Write-Host "==> $message" -ForegroundColor Cyan
 }
 
-Write-Step "Architecture $Arch ($($pins.label)), Node $($pins.node.version), WinSW $($pins.winsw.version)"
+Write-Step "Node $($dependencies.node.version), WinSW $($dependencies.winsw.version)"
 
 <# Downloads a file and refuses it unless the digest matches. #>
 function Get-PinnedFile {
@@ -125,10 +113,10 @@ Remove-Item (Join-Path $appDir 'pnpm-lock.yaml') -Force
 
 # ---------------------------------------------------------------- runtime
 
-Get-PinnedFile -Pin $pins.node -Destination (Join-Path $StageDir 'runtime\node.exe')
+Get-PinnedFile -Pin $dependencies.node -Destination (Join-Path $StageDir 'runtime\node.exe')
 
 $serviceDir = Join-Path $StageDir 'service'
-Get-PinnedFile -Pin $pins.winsw -Destination (Join-Path $serviceDir 'tally-mcp-service.exe')
+Get-PinnedFile -Pin $dependencies.winsw -Destination (Join-Path $serviceDir 'tally-mcp-service.exe')
 
 # WinSW reads the configuration file that sits beside it under the same name
 Copy-Item (Join-Path $PSScriptRoot '..\service\tally-mcp-service.xml') $serviceDir
@@ -139,4 +127,4 @@ $version = (Get-Content (Join-Path $repoRoot 'package.json') -Raw | ConvertFrom-
 Set-Content -Path (Join-Path $StageDir 'version.txt') -Value $version -NoNewline
 
 $size = (Get-ChildItem $StageDir -Recurse -File | Measure-Object -Property Length -Sum).Sum
-Write-Step ("Staged version {0} for {1}, {2:N0} MB" -f $version, $Arch, ($size / 1MB))
+Write-Step ("Staged version {0}, {1:N0} MB" -f $version, ($size / 1MB))

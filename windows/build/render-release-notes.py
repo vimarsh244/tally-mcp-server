@@ -36,12 +36,12 @@ def human_size(path):
     return f'{megabytes:.1f} MB'
 
 
-def find_installer(directory, arch):
-    matches = sorted(directory.glob(f'*-{arch}.exe'))
+def find_installer(directory):
+    matches = sorted(directory.glob('*.exe'))
     if not matches:
-        sys.exit(f'no installer for {arch} in {directory}')
+        sys.exit(f'no installer in {directory}')
     if len(matches) > 1:
-        sys.exit(f'more than one installer for {arch} in {directory}: {[m.name for m in matches]}')
+        sys.exit(f'more than one installer in {directory}: {[m.name for m in matches]}')
     return matches[0]
 
 
@@ -56,23 +56,20 @@ def main():
     parser.add_argument('--out', type=pathlib.Path)
     args = parser.parse_args()
 
-    pins = json.loads(args.pins.read_text())['architectures']
-    installers = {arch: find_installer(args.installer_dir, arch) for arch in ('x64', 'x86')}
+    pins = json.loads(args.pins.read_text())
+    installer = find_installer(args.installer_dir)
 
     values = {
         'VERSION': args.version,
         'TAG': args.tag,
         'REPO_URL': args.repo_url,
         'DOWNLOAD_BASE': f'{args.repo_url}/releases/download/{args.tag}',
-        'WINSW': pins['x64']['winsw']['version'],
+        'FILE': installer.name,
+        'SHA': sha256(installer),
+        'SIZE': human_size(installer),
+        'NODE': pins['node']['version'],
+        'WINSW': pins['winsw']['version'],
     }
-
-    for arch, path in installers.items():
-        suffix = arch.upper()
-        values[f'FILE_{suffix}'] = path.name
-        values[f'SHA_{suffix}'] = sha256(path)
-        values[f'SIZE_{suffix}'] = human_size(path)
-        values[f'NODE_{suffix}'] = pins[arch]['node']['version']
 
     notes = args.template.read_text()
     for key, value in values.items():

@@ -1,32 +1,13 @@
 {
-  "comment": "Pinned downloads per architecture. Every file is checked against its digest before it is used, so a version and its sha256 must be changed together. windows/README.md says how to read a new digest.",
-  "nodeNote": "Node 22 is the last line that ships a 32-bit Windows build. Node 24 dropped it, so the x86 installer pins Node 22 LTS while x64 stays on Node 24 LTS. package.json asks for Node 22 or newer, so both satisfy it.",
-  "architectures": {
-    "x64": {
-      "label": "64-bit",
-      "node": {
-        "version": "24.20.0",
-        "url": "https://nodejs.org/dist/v{version}/win-x64/node.exe",
-        "sha256": "5c976096e04e5c2c1f091938926234cc9fbebfe9787ddd149351b3b0ecc707b5"
-      },
-      "winsw": {
-        "version": "2.12.0",
-        "url": "https://github.com/winsw/winsw/releases/download/v{version}/WinSW-x64.exe",
-        "sha256": "05b82d46ad331cc16bdc00de5c6332c1ef818df8ceefcd49c726553209b3a0da"
-      }
-    },
-    "x86": {
-      "label": "32-bit",
-      "node": {
-        "version": "22.23.2",
-        "url": "https://nodejs.org/dist/v{version}/win-x86/node.exe",
-        "sha256": "ae3f4245f4b87a79b1a9f66fbede12f526adc3dea9c4bdb50d66ed8c88eb395a"
-      },
-      "winsw": {
-        "version": "2.12.0",
-        "url": "https://github.com/winsw/winsw/releases/download/v{version}/WinSW-x86.exe",
-        "sha256": "0c21327463a43a61f2efb227ec4afd2467fde91618cc725148c1099001ca91ae"
-      }
-    }
+  "comment": "Pinned downloads for the Windows payload. Every file is checked against its digest before it is used, so a version and its sha256 must be changed together. windows/README.md says how to read a new digest.",
+  "node": {
+    "version": "24.20.0",
+    "url": "https://nodejs.org/dist/v{version}/win-x64/node.exe",
+    "sha256": "5c976096e04e5c2c1f091938926234cc9fbebfe9787ddd149351b3b0ecc707b5"
+  },
+  "winsw": {
+    "version": "2.12.0",
+    "url": "https://github.com/winsw/winsw/releases/download/v{version}/WinSW-x64.exe",
+    "sha256": "05b82d46ad331cc16bdc00de5c6332c1ef818df8ceefcd49c726553209b3a0da"
   }
 }

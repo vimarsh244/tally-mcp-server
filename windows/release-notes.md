@@ -9,24 +9,18 @@ listens on `127.0.0.1` only.
 
 ## Download
 
-| File | Install it on | Size |
-|---|---|---|
-| [{{FILE_X64}}]({{DOWNLOAD_BASE}}/{{FILE_X64}}) | 64-bit Windows. **Use this one.** | {{SIZE_X64}} |
-| [{{FILE_X86}}]({{DOWNLOAD_BASE}}/{{FILE_X86}}) | 32-bit Windows only | {{SIZE_X86}} |
+**[{{FILE}}]({{DOWNLOAD_BASE}}/{{FILE}})** ({{SIZE}})
 
-Windows Server 2016, 2019, 2022 and 2025 are all 64-bit only. Take the 32-bit
-file only if you are installing on an old 32-bit copy of Windows.
+64-bit Windows. Nothing has to be installed first: the setup EXE carries its own
+copy of Node.
 
 ### Check what you downloaded
 
 ```powershell
-Get-FileHash .\{{FILE_X64}} -Algorithm SHA256
+Get-FileHash .\{{FILE}} -Algorithm SHA256
 ```
 
-| File | SHA-256 |
-|---|---|
-| `{{FILE_X64}}` | `{{SHA_X64}}` |
-| `{{FILE_X86}}` | `{{SHA_X86}}` |
+Expected: `{{SHA}}`
 
 ## Install
 
@@ -53,17 +47,11 @@ The full guide is in [docs/server-setup-windows.md]({{REPO_URL}}/blob/{{TAG}}/do
 
 ## What is inside
 
-Nothing has to be installed first. The setup EXE carries everything:
-
 | Part | Version |
 |---|---|
 | Tally MCP Server | {{VERSION}} |
-| Node runtime, 64-bit build | {{NODE_X64}} |
-| Node runtime, 32-bit build | {{NODE_X86}} |
+| Node runtime | {{NODE}} |
 | WinSW service wrapper | {{WINSW}} |
-
-The two builds pin different Node versions because Node 22 is the last line that
-ships a 32-bit Windows build. Both satisfy what this project asks for.
 
 ## Worth knowing
 

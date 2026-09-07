@@ -3,7 +3,7 @@ name: Windows installer
 # The build is heavy and downloads a Node runtime, so it does not run on every
 # push. It runs when a pull request touches the packaging, and on demand.
 #
-# Running it by hand can also publish a GitHub Release carrying both installers.
+# Running it by hand can also publish a GitHub Release carrying the installer.
 on:
   pull_request:
     paths:
@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       release:
-        description: 'Publish a GitHub Release with both installers'
+        description: 'Publish a GitHub Release with the installer'
         type: boolean
         default: false
       tag:
@@ -37,14 +37,8 @@ permissions:
 
 jobs:
   installer:
-    name: Build ${{ matrix.arch }}
+    name: Build the setup EXE
     runs-on: windows-latest
-
-    strategy:
-      # one architecture failing must not hide the other one's result
-      fail-fast: false
-      matrix:
-        arch: [x64, x86]
 
     steps:
       - uses: actions/checkout@v4
@@ -66,11 +60,9 @@ jobs:
           "value=$version" >> $env:GITHUB_OUTPUT
           Write-Host "version $version"
 
-      # the payload is identical for both architectures apart from node.exe and
-      # the service wrapper, because nothing here is a native module
       - name: Stage the payload
         shell: pwsh
-        run: .\windows\build\prepare.ps1 -Arch ${{ matrix.arch }}
+        run: .\windows\build\prepare.ps1
 
       - name: Install Inno Setup
         shell: pwsh
@@ -81,7 +73,7 @@ jobs:
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { throw "ISCC.exe was not found at $iscc" }
-          & $iscc "/DAppVersion=${{ steps.version.outputs.value }}" "/DArch=${{ matrix.arch }}" "windows\installer\tally-mcp.iss"
+          & $iscc "/DAppVersion=${{ steps.version.outputs.value }}" "windows\installer\tally-mcp.iss"
           if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
 
       - name: Report what was produced
@@ -95,7 +87,7 @@ jobs:
       - name: Upload the setup EXE
         uses: actions/upload-artifact@v4
         with:
-          name: setup-${{ matrix.arch }}
+          name: setup
           path: build-output/*.exe
           if-no-files-found: error
           retention-days: 30
@@ -113,11 +105,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Collect both installers
+      - name: Collect the installer
         uses: actions/download-artifact@v4
         with:
-          pattern: setup-*
-          merge-multiple: true
+          name: setup
           path: installers
 
       - name: Work out the tag
@@ -136,7 +127,7 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "Release $tag for version $version"
 
-      # written before the notes, so its digests are the ones the notes quote
+      # written before the notes, so its digest is the one the notes quote
       - name: Write the checksum file
         working-directory: installers
         run: |
