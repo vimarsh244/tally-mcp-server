@@ -506,7 +506,39 @@ End-users are free to hard-code few settings which needs to be applied
 |BLOCK_WRITE|Controls if MCP completely block access of write functionality. Setting this flag to value **1** will completely hide write functionality tools from the tool list. [ **0 = Allow , 1 = Block** ] (optional, default is **0** i.e. allowed). Not applicable for Claude Desktop (as it offers graphical switch to disable write functionality)|
 |PORT|Tally MCP Server port number. Applicable only if Tally Prime MCP Server is deployed as Remote MCP server (*optional*, default is **3000**). Not applicable for Claude Desktop|
 |MCP_DOMAIN|Domain name of Tally MCP Server website (*optional*, default is https://localhost:9000). Not applicable for Claude Desktop|
-|PASSWORD|Password for the OAuth Login front-end page to authenticate genuine user (kindly set this to some complex password default is **password**). Not applicable for Claude Desktop|
+|PASSWORD|Password for the OAuth Login front-end page to authenticate genuine user. The server **refuses to start** on a non-local `MCP_DOMAIN` while this is left at the default of **password**. Not applicable for Claude Desktop|
+|ALLOW_DEFAULT_PASSWORD|Set to **1** to start on a public domain with the default password anyway (*optional*, default is **0**). Only for a deployment you know is otherwise protected|
+|ALLOWED_HOSTS|Extra `Host` header values the `/mcp` endpoint accepts, comma separated. The value of `MCP_DOMAIN` and the loopback names are always accepted (*optional*)|
+|TRUST_PROXY|Set to **1** when running behind a reverse proxy, so the attempt limiter sees the real client address from `X-Forwarded-For` (*optional*, default is **0**)|
+|ACCESS_TOKEN_TTL_MS|Lifetime of an issued access token (*optional*, default is **3600000**, i.e. 1 hour)|
+|REFRESH_TOKEN_TTL_MS|Lifetime of an issued refresh token (*optional*, default is **2592000000**, i.e. 30 days)|
+|MAX_REGISTERED_CLIENTS|Upper bound on dynamically registered OAuth clients (*optional*, default is **100**)|
+|AUTH_ATTEMPT_LIMIT|Failed password attempts allowed per address per window (*optional*, default is **10**)|
+|AUTH_ATTEMPT_WINDOW_MS|Length of that window (*optional*, default is **900000**, i.e. 15 minutes)|
+
+## Security of the remote deployment
+
+This applies only to the remote (HTTP) setup. The Claude Desktop extension runs
+over stdio and is not affected.
+
+Copy `.env.example` to `.env` and set a real `PASSWORD`. **`.env` is ignored by
+git and must never be committed.** The server refuses to start on a non-local
+`MCP_DOMAIN` while the password is still the default.
+
+Access control works as follows.
+
+* Every request to `/mcp` needs a bearer token, including `GET` (the
+  notification stream) and `DELETE` (ending a session).
+* A session belongs to the OAuth client that opened it. A token issued to one
+  client cannot read or end another client's session.
+* The `Host` header must match `MCP_DOMAIN`, a loopback name, or an entry in
+  `ALLOWED_HOSTS`. This blocks DNS rebinding.
+* Tokens are checked for expiry, refresh tokens rotate on use and are bound to
+  the client they were issued to, and an authorization code can be spent once.
+* Repeated wrong passwords from one address are refused for a while.
+
+Run the server behind TLS. Tokens and the password are sent in plain text over
+a plain HTTP connection.
 
 ## Contact
 Project developed & maintained by: **Dhananjay Gokhale**

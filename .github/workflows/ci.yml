@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+  workflow_dispatch:
+
+# only the newest run per branch matters
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      # 24 is the active LTS. package.json still declares engines >=22, so a
+      # Node 22 job can be added back here if that support needs proving.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm exec tsc --noEmit
+
+      - name: Build
+        run: pnpm build
+
+      # dist/ and templates.generated.mts are committed, so a build must not
+      # change them. If it does, the commit was made without running the build.
+      - name: Check the committed build is current
+        run: |
+          if ! git diff --quiet; then
+            echo "::error::Committed build output is stale. Run 'pnpm build' and commit the result."
+            git --no-pager diff --stat
+            exit 1
+          fi
+
+      - name: Check the manifest is current
+        run: pnpm build:manifest -- --check
+
+      - name: Test
+        run: pnpm test
+
+  secrets:
+    name: No committed secrets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # .env carried a real password value until it was removed; this keeps it out
+      - name: Refuse a committed .env
+        run: |
+          if git ls-files --error-unmatch .env 2>/dev/null; then
+            echo "::error file=.env::.env must not be committed. Use .env.example instead."
+            exit 1
+          fi
+          echo "no .env in the index"

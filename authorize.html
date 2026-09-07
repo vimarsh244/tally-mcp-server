@@ -183,6 +183,20 @@
                     body: JSON.stringify(requestBody)
                 });
                 
+                // A wrong password now answers 401 and too many attempts answer 429.
+                // Both keep the user on this page so they can try again.
+                if (response.status === 401) {
+                    hideLoading();
+                    showError('Incorrect password. Please try again.');
+                    return;
+                }
+
+                if (response.status === 429) {
+                    hideLoading();
+                    showError('Too many failed attempts. Please wait and try again later.');
+                    return;
+                }
+
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -194,13 +208,14 @@
                     // Success - redirect with code parameter
                     const redirectUrl = new URL(params.redirect_uri);
                     redirectUrl.searchParams.set('code', result.code);
-                    redirectUrl.searchParams.set('state', params.state);
+                    // only echo state when the client sent one, never a literal "null"
+                    if (params.state) {
+                        redirectUrl.searchParams.set('state', params.state);
+                    }
                     window.location.href = redirectUrl.toString();
                 } else {
-                    // Failure - redirect with error parameter
-                    const redirectUrl = new URL(params.redirect_uri);
-                    redirectUrl.searchParams.set('error', 'access_denied');
-                    window.location.href = redirectUrl.toString();
+                    hideLoading();
+                    showError('Incorrect password. Please try again.');
                 }
                 
             } catch (error) {
