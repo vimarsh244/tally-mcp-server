@@ -42,7 +42,11 @@ export async function cacheTable(lstColumnMetadata, data) {
                 const values = Array.from(lstColumnMetadata.entries()).map(([colName, colType]) => {
                     const value = row[colName];
                     if (colType === 'number' || colType === 'amount' || colType === 'quantity' || colType === 'rate') {
-                        return !isNaN(value) ? Number(value) : null;
+                        // isNaN(null) is false, so a null must be rejected before the numeric conversion
+                        if (value === null || value === undefined || value === '')
+                            return null;
+                        const num = Number(value);
+                        return Number.isFinite(num) ? num : null;
                     }
                     else if (colType === 'boolean') {
                         return typeof value === 'boolean' ? value : null;
