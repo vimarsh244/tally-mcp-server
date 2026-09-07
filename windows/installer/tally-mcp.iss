@@ -14,6 +14,7 @@
 #define DataDir        "{commonappdata}\TallyMcpServer"
 #define DefaultPort    "9500"
 #define StageDir       "..\stage"
+#define PfxPassword    "tally-mcp-localhost-2026"
 
 [Setup]
 ; keep this GUID for the life of the product, or upgrades install side by side
@@ -85,7 +86,7 @@ end;
 
 function GetSetupUrl(Param: String): String;
 begin
-  Result := 'http://127.0.0.1:' + ChosenPort + '/admin';
+  Result := 'https://localhost:' + ChosenPort + '/admin';
 end;
 
 procedure InitializeWizard;
@@ -169,7 +170,7 @@ var
 begin
   Port := ChosenPort;
 
-  SetArrayLength(Lines, 12);
+  SetArrayLength(Lines, 16);
   Lines[0]  := '# Written by the Tally MCP Server installer. Edit, then restart the service.';
   Lines[1]  := '';
   Lines[2]  := '# One profile per Tally user, each under /u/<id>/mcp.';
@@ -178,10 +179,14 @@ begin
   Lines[5]  := '# Reachable from this machine only.';
   Lines[6]  := 'BIND_HOST=127.0.0.1';
   Lines[7]  := 'PORT=' + Port;
-  Lines[8]  := 'MCP_DOMAIN=http://127.0.0.1:' + Port;
+  Lines[8]  := 'MCP_DOMAIN=https://localhost:' + Port;
   Lines[9]  := '';
   Lines[10] := '# Profile registry and admin token.';
   Lines[11] := 'TALLY_MCP_DATA_DIR=' + ExpandConstant('{#DataDir}');
+  Lines[12] := '';
+  Lines[13] := '# Local HTTPS certificate created and trusted by the installer.';
+  Lines[14] := 'TLS_PFX_PATH=' + ExpandConstant('{#DataDir}\localhost.pfx');
+  Lines[15] := 'TLS_PFX_PASSWORD={#PfxPassword}';
 
   SaveStringsToFile(ExpandConstant('{app}\app\.env'), Lines, False);
 end;
@@ -203,6 +208,17 @@ begin
   ProtectDataDir;
   WriteEnvFile;
 
+  if not RunAndWait(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+      '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' +
+      ExpandConstant('{app}\service\install-local-certificate.ps1') + '" -PfxPath "' +
+      ExpandConstant('{#DataDir}\localhost.pfx') + '" -Password "{#PfxPassword}"', ResultCode)
+      or (ResultCode <> 0) then
+  begin
+    MsgBox('The trusted localhost HTTPS certificate could not be created. ' +
+           'The service was not installed.', mbError, MB_OK);
+    Exit;
+  end;
+
   if not RunAndWait(ServiceExe, 'install', ResultCode) or (ResultCode <> 0) then
   begin
     MsgBox('The service could not be registered. Check the log in ' +
@@ -217,9 +233,17 @@ begin
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  ResultCode: Integer;
 begin
   if CurUninstallStep = usUninstall then
+  begin
     RemoveService;
+    RunAndWait(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+      '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' +
+      ExpandConstant('{app}\service\install-local-certificate.ps1') + '" -PfxPath "' +
+      ExpandConstant('{#DataDir}\localhost.pfx') + '" -Password "{#PfxPassword}" -Remove', ResultCode);
+  end;
 
   if CurUninstallStep = usPostUninstall then
     MsgBox('The profiles and the admin token were left in ' + ExpandConstant('{#DataDir}') + '.' + #13#10 +

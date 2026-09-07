@@ -2,6 +2,8 @@
  * HTTP entry point for the remote MCP server.
  */
 import path from 'node:path';
+import fs from 'node:fs';
+import https from 'node:https';
 import { assertPasswordIsSafe, config } from './config.mjs';
 import { defaultDataDir, ensureAdminToken, ProfileStore } from './profiles.mjs';
 import { createApp } from './http/app.mjs';
@@ -21,8 +23,15 @@ if (config.multiUser) {
     options.adminToken = ensureAdminToken(dataDir);
 }
 const { app } = createApp(publicDir, options);
-app.listen(config.port, config.bindHost, () => {
-    console.log(`MCP Server started on ${config.bindHost}:${config.port}`);
+const server = config.tlsPfxPath
+    ? https.createServer({
+        pfx: fs.readFileSync(config.tlsPfxPath),
+        passphrase: config.tlsPfxPassword,
+    }, app)
+    : app;
+server.listen(config.port, config.bindHost, () => {
+    const protocol = config.tlsPfxPath ? 'https' : 'http';
+    console.log(`MCP Server started on ${protocol}://${config.bindHost}:${config.port}`);
     if (!options.profiles)
         return;
     console.log(`Profiles: ${options.profiles.list().length} in ${options.profiles.dir}`);

@@ -39,6 +39,9 @@ export const config = {
     bindHost: process.env.BIND_HOST || '0.0.0.0',
     domain: process.env.MCP_DOMAIN || 'http://localhost:3000',
     password: process.env.PASSWORD || DEFAULT_PASSWORD,
+    /** Optional PKCS#12 certificate used when TLS terminates in this process. */
+    tlsPfxPath: process.env.TLS_PFX_PATH || '',
+    tlsPfxPassword: process.env.TLS_PFX_PASSWORD || '',
 
     /** Lifetime of an issued access token. */
     accessTokenTtlMs: toInt(process.env.ACCESS_TOKEN_TTL_MS, 60 * 60 * 1000),

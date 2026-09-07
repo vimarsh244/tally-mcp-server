@@ -15,7 +15,9 @@ address and its own token, and can reach only its own copy of Tally.
 | Profiles and tokens | `C:\ProgramData\TallyMcpServer` | The registry and the admin token. Readable by administrators only |
 | Logs | `C:\ProgramData\TallyMcpServer\logs` | Service output, rolled at 10 MB |
 
-The service listens on `127.0.0.1` only. The installer opens no firewall port.
+The service listens on `127.0.0.1` only, over HTTPS. The installer creates a
+self-signed certificate for `localhost` and trusts it for all users on that
+Windows machine. The installer opens no firewall port.
 
 ## Before you install
 
@@ -76,7 +78,7 @@ into the page.
 You now get two things. The **address**, which looks like:
 
 ```
-http://127.0.0.1:9500/u/ramesh/mcp
+https://localhost:9500/u/ramesh/mcp
 ```
 
 And the **token**, shown once. Copy it now. Only its hash is kept, so it cannot
@@ -104,7 +106,7 @@ the URL: a URL ends up in logs and in browser history.
 
 | Client | Works |
 |---|---|
-| Claude Desktop, custom connector | Yes, against the loopback address |
+| Claude Desktop, custom connector | Yes, against the trusted `https://localhost` address |
 | MCP Inspector or any local tool | Yes |
 | A browser on the server itself | Yes, for the setup page and the discovery documents |
 | ChatGPT on the web, Claude on the web | Not yet. They run in the cloud and cannot reach an address on your server |
@@ -117,7 +119,7 @@ part of this install.
 - **The service.** `services.msc`, look for **Tally MCP Server**. Or run
   `sc query TallyMcpServer`.
 - **The address.** In a browser on the server, open
-  `http://127.0.0.1:9500/.well-known/oauth-protected-resource/u/ramesh/mcp`.
+  `https://localhost:9500/.well-known/oauth-protected-resource/u/ramesh/mcp`.
   It should return JSON naming that profile. A 404 means the profile id is
   wrong.
 - **Tally.** On the setup page, put the port in the form and press **Test this
@@ -140,6 +142,11 @@ port and restart it.
 
 **Everything returns 404.** `MULTI_USER=1` is missing from
 `app\.env`. Without it the per profile addresses are switched off.
+
+**The client reports a certificate error.** Re-run the installer as an
+administrator. It creates `C:\ProgramData\TallyMcpServer\localhost.pfx` and
+adds its public certificate to the Local Machine trusted root store. Use
+`https://localhost:9500`, not an IP address, in the connector URL.
 
 ## Changing a profile
 
