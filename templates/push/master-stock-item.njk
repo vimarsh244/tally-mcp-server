@@ -24,48 +24,71 @@
                         {% if master.parent %}
                         <PARENT>{{ master.parent | escape }}</PARENT>
                         {% endif %}
-                        {% if master.openingBalance !== undefined %}
-                        <OPENINGBALANCE>{{ master.openingBalance }}</OPENINGBALANCE>
-                        {% endif %}
-                        {% if master.category === undefined %}
-                        {% elif master.category == '' %}
-                        <CATEGORY>&#4; Not Applicable</CATEGORY>
-                        {% else %}
-                        <CATEGORY>{{ master.category | escape }}</CATEGORY>
+                        {% if master.category != undefined %}
+                        <CATEGORY>{% if master.category %}{{ master.category | escape }}{% else %}&#4; Not Applicable{% endif %}</CATEGORY>
                         {% endif %}
                         {% if master.unit %}
                         <BASEUNITS>{{ master.unit | escape }}</BASEUNITS>
                         {% endif %}
-                        {% if master.additionalunit %}
-                        <ADDITIONALUNITS>{{ master.additionalunit | escape }}</ADDITIONALUNITS>
+                        {% if master.alternateUnit %}
+                        <ADDITIONALUNITS>{{ master.alternateUnit | escape }}</ADDITIONALUNITS>
+                        <CONVERSION>{{ master.conversion }}</CONVERSION>
                         {% endif %}
-                        {% if isGstApplicable === true %}
+                        {% if master.partNo != undefined %}
+                        <PARTNO>{{ master.partNo | escape }}</PARTNO>
+                        {% endif %}
+                        {% if master.costingMethod %}
+                        <COSTINGMETHOD>{{ master.costingMethod | escape }}</COSTINGMETHOD>
+                        {% endif %}
+                        {% if master.openingQuantity != undefined %}
+                        <OPENINGBALANCE>{{ master.openingQuantity }}{% if master.unit %} {{ master.unit | escape }}{% endif %}</OPENINGBALANCE>
+                        {% if master.openingRate != undefined %}
+                        <OPENINGRATE>{{ master.openingRate }}{% if master.unit %}/{{ master.unit | escape }}{% endif %}</OPENINGRATE>
+                        {% endif %}
+                        {% if master.openingValue != undefined %}
+                        <OPENINGVALUE>{{ master.openingValue }}</OPENINGVALUE>
+                        {% endif %}
+                        {% endif %}
+                        {% if master.gstDetails %}
                         <GSTAPPLICABLE>&#4; Applicable</GSTAPPLICABLE>
-                        {% elif isGstApplicable === false %}
-                        <GSTAPPLICABLE>&#4; Not Applicable</GSTAPPLICABLE>
-                        {% else %}
+                        {% if master.gstDetails.hsnCode != undefined %}
+                        <HSNCODE>{{ master.gstDetails.hsnCode | escape }}</HSNCODE>
                         {% endif %}
-                        {% if master.gstdetails %}
                         <GSTDETAILS.LIST>
-                            <APPLICABLEFROM>{{ master.gstdetails.applicableFrom | formatDate("yyyyMMdd") }}</APPLICABLEFROM>
-                            {% if master.gstdetails.rate === undefined %}
+                            <APPLICABLEFROM>{{ master.gstDetails.applicableFrom | formatDate("yyyyMMdd") }}</APPLICABLEFROM>
+                            {% if master.gstDetails.rate == undefined %}
                             <SRCOFGSTDETAILS>As per Company/Stock Group</SRCOFGSTDETAILS>
                             {% else %}
-                            <SRCOFGSTDETAILS>As per Company/Stock Group</SRCOFGSTDETAILS>
+                            <SRCOFGSTDETAILS>Specify Details Here</SRCOFGSTDETAILS>
+                            {% endif %}
+                            {% if master.gstDetails.hsnCode != undefined %}
+                            <HSNCODE>{{ master.gstDetails.hsnCode | escape }}</HSNCODE>
+                            {% endif %}
+                            {% if master.gstDetails.taxability %}
+                            <TAXABILITY>{{ master.gstDetails.taxability | escape }}</TAXABILITY>
                             {% endif %}
                             <STATEWISEDETAILS.LIST>
                                 <STATENAME>&#4; Any</STATENAME>
                                 <RATEDETAILS.LIST>
                                     <GSTRATEDUTYHEAD>CGST</GSTRATEDUTYHEAD>
                                     <GSTRATEVALUATIONTYPE>Based on Value</GSTRATEVALUATIONTYPE>
+                                    {% if master.gstDetails.rate != undefined %}
+                                    <GSTRATE>{{ master.gstDetails.rate / 2 }}</GSTRATE>
+                                    {% endif %}
                                 </RATEDETAILS.LIST>
                                 <RATEDETAILS.LIST>
                                     <GSTRATEDUTYHEAD>SGST/UTGST</GSTRATEDUTYHEAD>
                                     <GSTRATEVALUATIONTYPE>Based on Value</GSTRATEVALUATIONTYPE>
+                                    {% if master.gstDetails.rate != undefined %}
+                                    <GSTRATE>{{ master.gstDetails.rate / 2 }}</GSTRATE>
+                                    {% endif %}
                                 </RATEDETAILS.LIST>
                                 <RATEDETAILS.LIST>
                                     <GSTRATEDUTYHEAD>IGST</GSTRATEDUTYHEAD>
                                     <GSTRATEVALUATIONTYPE>Based on Value</GSTRATEVALUATIONTYPE>
+                                    {% if master.gstDetails.rate != undefined %}
+                                    <GSTRATE>{{ master.gstDetails.rate }}</GSTRATE>
+                                    {% endif %}
                                 </RATEDETAILS.LIST>
                                 <RATEDETAILS.LIST>
                                     <GSTRATEDUTYHEAD>Cess</GSTRATEDUTYHEAD>

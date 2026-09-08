@@ -112,6 +112,14 @@
       "description": "fetches GL stock item account statement with voucher level details containing fields date, voucher_type, voucher_number, party_name, quantity, amount, narration, tracking_number, voucher_category. party_name = ledger_name. quantity = inward as positive and outward as negative. amount = debit is negative and credit is positive, narration = notes / remarks. for calculating closing balance of quantity, consider rows with tracking_number as empty as it is, but for rows with tracking_number having text value, then duplicate rows need to be removed by preparing intermediate output with aggregation of tracking_number and voucher_category with sum of quantity and then comparing quantity of Receipt Note with Purchase and Delivery Note with Sales to identify and remove the rows with Receipt Note and Delivery Note if they are found to be tracked fully / partially . returns output cached in pglite postgres in-memory table (specified in tableID property). Use query-database tool to run SQL queries against that table for further analysis"
     },
     {
+      "name": "daybook",
+      "description": "fetches the daybook, one row per voucher entered in the period, with fields guid, date, voucher_type, voucher_number, reference, party_name, amount, narration, is_cancelled, is_optional. amount = total debit value of the voucher, always positive, and is zero for a voucher with no accounting entry such as a stock journal. guid is the stable identifier to pass to the voucher-get tool. results are paged, so read row_count, has_more and next_offset from the response and call again with offset to continue. returns output cached in pglite postgres in-memory table (specified in tableID property). Use query-database tool to run SQL queries against that table for further analysis"
+    },
+    {
+      "name": "voucher-get",
+      "description": "fetches one complete voucher by its guid, with every ledger line, bill reference and inventory line. use the daybook tool or the ledger-account tool first to obtain the guid and the date. amount = debit is negative and credit is positive, on the voucher itself and on every line. the result is returned inline as JSON, not as a cached table, because one voucher is small"
+    },
+    {
       "name": "set-company",
       "description": "sets the active company context in Tally Prime. This changes the global company context used by Tally for subsequent operations and report queries"
     },
@@ -121,11 +129,43 @@
     },
     {
       "name": "ledger-create-update",
-      "description": "create or update ledger master data in Tally Prime, returns success count of created and / or altered records"
+      "description": "create or update ledger master data in Tally Prime, returns success count of created and / or altered records. a property left undefined keeps its current value in Tally, so a partial update is safe. read the result back with the query-collection tool on the ledger collection to confirm the fields Tally stored"
+    },
+    {
+      "name": "group-create-update",
+      "description": "create or update accounting group master data in Tally Prime, returns success count of created and / or altered records"
+    },
+    {
+      "name": "stock-group-create-update",
+      "description": "create or update stock group master data in Tally Prime, returns success count of created and / or altered records"
+    },
+    {
+      "name": "unit-create-update",
+      "description": "create or update unit of measurement master data in Tally Prime, returns success count of created and / or altered records. a simple unit carries a symbol and a formal name, a compound unit is built from two existing simple units and a conversion"
+    },
+    {
+      "name": "godown-create-update",
+      "description": "create or update godown or warehouse or location master data in Tally Prime, returns success count of created and / or altered records"
+    },
+    {
+      "name": "stock-item-create-update",
+      "description": "create or update stock item or product master data in Tally Prime, returns success count of created and / or altered records. an opening balance needs the quantity together with a rate or a value"
+    },
+    {
+      "name": "company-create",
+      "description": "creates a new company in Tally Prime. this is not the same as the set-company tool, which only selects a company that already exists. the company is created in the data directory Tally is configured to use. Tally must accept company creation over the XML interface for this to work, so read the returned counters and confirm with the list-master tool using collection as company"
     },
     {
       "name": "delete-master",
       "description": "deletes a master object from selected collection in Tally Prime and returns success count of deleted records"
+    },
+    {
+      "name": "voucher-create-update",
+      "description": "creates new transactions or replaces existing ones in Tally Prime. amount = debit is negative and credit is positive, and every amount of a voucher must add up to zero. every ledger, voucher type and stock item is validated before anything is sent, so an invalid batch changes nothing in Tally. an alter replaces the whole voucher, so send every line again, not only the changed ones. returns the counters Tally reports and, unless verify is false, the vouchers read back from the daybook. if the call times out the outcome is unknown, read the daybook for that date before sending it again, or a duplicate will be created"
+    },
+    {
+      "name": "voucher-cancel-delete",
+      "description": "cancels or deletes existing transactions in Tally Prime. a cancelled voucher keeps its number and stays visible in the daybook with no entries, a deleted voucher is removed. every guid is looked up in the daybook first, so an unknown one changes nothing in Tally. this cannot be undone"
     }
   ],
   "tools_generated": false,

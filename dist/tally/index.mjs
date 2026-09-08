@@ -2,5 +2,5 @@
 export { postTallyXml, sendTallyXml } from './client.mjs';
 export { collectionDefinition, queryCollection, renameObjectArrayProperties } from './collections.mjs';
 export { fetchReport } from './reports.mjs';
-export { deleteMasters, importMasters, invokeTallyAction } from './masters.mjs';
+export { deleteMasters, importMasters, importTemplate, invokeTallyAction } from './masters.mjs';
 //# sourceMappingURL=index.mjs.map

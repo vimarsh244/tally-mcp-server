@@ -1,0 +1,49 @@
+<ENVELOPE>
+    <HEADER>
+        <TALLYREQUEST>Import Data</TALLYREQUEST>
+    </HEADER>
+    <BODY>
+        <IMPORTDATA>
+            <REQUESTDESC>
+                <REPORTNAME>All Masters</REPORTNAME>
+            </REQUESTDESC>
+            <REQUESTDATA>
+                {% for master in masters %}
+                <TALLYMESSAGE>
+                    <COMPANY NAME="{{ master.name | escape }}" ACTION="Create">
+                        <NAME>{{ master.name | escape }}</NAME>
+                        <STARTINGFROM>{{ master.booksFrom | formatDate("yyyyMMdd") }}</STARTINGFROM>
+                        <BOOKSFROM>{{ master.booksFrom | formatDate("yyyyMMdd") }}</BOOKSFROM>
+                        {% if master.mailingName %}
+                        <MAILINGNAME>{{ master.mailingName | escape }}</MAILINGNAME>
+                        {% endif %}
+                        {% if master.address %}
+                        <ADDRESS.LIST>
+                            {% for line in master.address %}
+                            <ADDRESS>{{ line | escape }}</ADDRESS>
+                            {% endfor %}
+                        </ADDRESS.LIST>
+                        {% endif %}
+                        <COUNTRYNAME>{{ master.country | escape }}</COUNTRYNAME>
+                        <STATENAME>{{ master.state | escape }}</STATENAME>
+                        {% if master.pincode %}
+                        <PINCODE>{{ master.pincode | escape }}</PINCODE>
+                        {% endif %}
+                        {% if master.email %}
+                        <EMAIL>{{ master.email | escape }}</EMAIL>
+                        {% endif %}
+                        {% if master.phoneNumber %}
+                        <PHONENUMBER>{{ master.phoneNumber | escape }}</PHONENUMBER>
+                        {% endif %}
+                        <BASECURRENCYSYMBOL>{{ master.currencySymbol | escape }}</BASECURRENCYSYMBOL>
+                        <FORMALNAME>{{ master.currencyName | escape }}</FORMALNAME>
+                        <ISBILLWISEON>{{ "Yes" if master.isBillWise else "No" }}</ISBILLWISEON>
+                        <ISINVENTORYON>{{ "Yes" if master.isInventory else "No" }}</ISINVENTORYON>
+                        <ISCOSTCENTRESON>{{ "Yes" if master.isCostCentres else "No" }}</ISCOSTCENTRESON>
+                    </COMPANY>
+                </TALLYMESSAGE>
+                {% endfor %}
+            </REQUESTDATA>
+        </IMPORTDATA>
+    </BODY>
+</ENVELOPE>

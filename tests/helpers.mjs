@@ -41,6 +41,8 @@ export async function startFakeTally(port = 9000) {
     await new Promise((resolve) => server.listen(port, '127.0.0.1', resolve));
 
     return {
+        /** The port actually bound, so a caller may pass 0 and let the OS choose one. */
+        port: server.address().port,
         requests,
         lastRequest: () => requests[requests.length - 1],
         /** Accepts a fixed string, or a function returning a string (or null to fall through). */

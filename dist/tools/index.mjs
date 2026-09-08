@@ -10,8 +10,10 @@ import { queryTools } from './query.mjs';
 import { statementTools } from './statements.mjs';
 import { ledgerTools } from './ledgers.mjs';
 import { inventoryTools } from './inventory.mjs';
+import { voucherTools } from './vouchers.mjs';
 import { contextTools } from './context.mjs';
 import { writeTools } from './write.mjs';
+import { voucherWriteTools } from './voucher-write.mjs';
 /** Read only modules, always registered. */
 const readModules = [
     metadataTools,
@@ -19,10 +21,11 @@ const readModules = [
     statementTools,
     ledgerTools,
     inventoryTools,
+    voucherTools,
     contextTools,
 ];
 /** Modules hidden when BLOCK_WRITE is set. */
-const writeModules = [writeTools];
+const writeModules = [writeTools, voucherWriteTools];
 export async function registerMcpServer(options = {}) {
     const server = new McpServer(serverInfo);
     const context = { server, cache: await ResultCache.create() };

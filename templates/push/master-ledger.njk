@@ -33,6 +33,43 @@
                         <BILLCREDITPERIOD>{{ master.billCreditPeriod }} Days</BILLCREDITPERIOD>
                         {% endif %}
                         {% endif %}
+                        {% if master.contactDetails %}
+                        {% if master.contactDetails.contactPerson != undefined %}
+                        <LEDGERCONTACT>{{ master.contactDetails.contactPerson | escape }}</LEDGERCONTACT>
+                        {% endif %}
+                        {% if master.contactDetails.phone != undefined %}
+                        <LEDGERPHONE>{{ master.contactDetails.phone | escape }}</LEDGERPHONE>
+                        {% endif %}
+                        {% if master.contactDetails.mobile != undefined %}
+                        <LEDGERMOBILE>{{ master.contactDetails.mobile | escape }}</LEDGERMOBILE>
+                        {% endif %}
+                        {% if master.contactDetails.email != undefined %}
+                        <EMAIL>{{ master.contactDetails.email | escape }}</EMAIL>
+                        {% endif %}
+                        {% if master.contactDetails.website != undefined %}
+                        <WEBSITE>{{ master.contactDetails.website | escape }}</WEBSITE>
+                        {% endif %}
+                        {% endif %}
+                        {% if master.bankDetails %}
+                        {% if master.bankDetails.accountHolderName != undefined %}
+                        <BANKACCHOLDERNAME>{{ master.bankDetails.accountHolderName | escape }}</BANKACCHOLDERNAME>
+                        {% endif %}
+                        {% if master.bankDetails.accountNumber != undefined %}
+                        <BANKDETAILS>{{ master.bankDetails.accountNumber | escape }}</BANKDETAILS>
+                        {% endif %}
+                        {% if master.bankDetails.ifscCode != undefined %}
+                        <IFSCODE>{{ master.bankDetails.ifscCode | escape }}</IFSCODE>
+                        {% endif %}
+                        {% if master.bankDetails.swiftCode != undefined %}
+                        <SWIFTCODE>{{ master.bankDetails.swiftCode | escape }}</SWIFTCODE>
+                        {% endif %}
+                        {% if master.bankDetails.bankName != undefined %}
+                        <BANKNAME>{{ master.bankDetails.bankName | escape }}</BANKNAME>
+                        {% endif %}
+                        {% if master.bankDetails.branchName != undefined %}
+                        <BRANCHNAME>{{ master.bankDetails.branchName | escape }}</BRANCHNAME>
+                        {% endif %}
+                        {% endif %}
                         {% if master.mailingDetails %}
                         <LEDMAILINGDETAILS.LIST>
                             <APPLICABLEFROM>{{ master.mailingDetails.applicableFrom | formatDate("yyyyMMdd") }}</APPLICABLEFROM>
@@ -41,10 +78,18 @@
                             {% endif %}
                             <COUNTRY>{{ master.mailingDetails.country | escape }}</COUNTRY>
                             <STATE>{{ master.mailingDetails.state | escape }}</STATE>
+                            {% if master.mailingDetails.address != undefined %}
+                            <ADDRESS.LIST>
+                                {% for line in master.mailingDetails.address %}
+                                <ADDRESS>{{ line | escape }}</ADDRESS>
+                                {% endfor %}
+                            </ADDRESS.LIST>
+                            {% endif %}
                             {% if master.mailingDetails.pincode != undefined %}
                             <PINCODE>{{ master.mailingDetails.pincode | escape }}</PINCODE>
                             {% endif %}
                         </LEDMAILINGDETAILS.LIST>
+                        {% endif %}
                         {% if master.gstRegistrationDetails %}
                         <LEDGSTREGDETAILS.LIST>
                             <APPLICABLEFROM>{{ master.gstRegistrationDetails.applicableFrom | formatDate("yyyyMMdd") }}</APPLICABLEFROM>
@@ -54,7 +99,6 @@
                             {% endif %}
                             <GSTIN>{{ master.gstRegistrationDetails.gstin | escape }}</GSTIN>
                         </LEDGSTREGDETAILS.LIST>
-                        {% endif %}
                         {% endif %}
                     </LEDGER>
                 </TALLYMESSAGE>

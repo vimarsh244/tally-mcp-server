@@ -13,8 +13,10 @@ import { queryTools } from './query.mjs';
 import { statementTools } from './statements.mjs';
 import { ledgerTools } from './ledgers.mjs';
 import { inventoryTools } from './inventory.mjs';
+import { voucherTools } from './vouchers.mjs';
 import { contextTools } from './context.mjs';
 import { writeTools } from './write.mjs';
+import { voucherWriteTools } from './voucher-write.mjs';
 
 /** Read only modules, always registered. */
 const readModules: ToolModule[] = [
@@ -23,11 +25,12 @@ const readModules: ToolModule[] = [
     statementTools,
     ledgerTools,
     inventoryTools,
+    voucherTools,
     contextTools,
 ];
 
 /** Modules hidden when BLOCK_WRITE is set. */
-const writeModules: ToolModule[] = [writeTools];
+const writeModules: ToolModule[] = [writeTools, voucherWriteTools];
 
 export interface McpServerOptions {
     /**

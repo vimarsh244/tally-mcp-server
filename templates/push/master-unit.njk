@@ -1,0 +1,40 @@
+<ENVELOPE>
+    <HEADER>
+        <TALLYREQUEST>Import Data</TALLYREQUEST>
+    </HEADER>
+    <BODY>
+        <IMPORTDATA>
+            <REQUESTDESC>
+                <REPORTNAME>All Masters</REPORTNAME>
+                <STATICVARIABLES>
+                    {% if targetCompany %}
+                    <SVCURRENTCOMPANY>{{ targetCompany | escape }}</SVCURRENTCOMPANY>
+                    {% endif %}
+                </STATICVARIABLES>
+            </REQUESTDESC>
+            <REQUESTDATA>
+                {% for master in masters %}
+                <TALLYMESSAGE>
+                    <UNIT NAME="{{ master._name or master.name | escape }}" ACTION="Create">
+                        <NAME>{{ master.name | escape }}</NAME>
+                        <ISSIMPLEUNIT>{{ "No" if master.baseUnit else "Yes" }}</ISSIMPLEUNIT>
+                        {% if master.baseUnit %}
+                        <BASEUNITS>{{ master.baseUnit | escape }}</BASEUNITS>
+                        <ADDITIONALUNITS>{{ master.additionalUnit | escape }}</ADDITIONALUNITS>
+                        <CONVERSION>{{ master.conversion }}</CONVERSION>
+                        {% else %}
+                        <ORIGINALNAME>{{ master.name | escape }}</ORIGINALNAME>
+                        {% if master.formalName != undefined %}
+                        <FORMALNAME>{{ master.formalName | escape }}</FORMALNAME>
+                        {% endif %}
+                        {% if master.decimalPlaces != undefined %}
+                        <DECIMALPLACES>{{ master.decimalPlaces }}</DECIMALPLACES>
+                        {% endif %}
+                        {% endif %}
+                    </UNIT>
+                </TALLYMESSAGE>
+                {% endfor %}
+            </REQUESTDATA>
+        </IMPORTDATA>
+    </BODY>
+</ENVELOPE>
