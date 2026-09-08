@@ -72,6 +72,10 @@ pnpm check
 |2|`tsc`|Compiles `src` into `dist`|
 |3|`pnpm build:manifest`|Rewrites the `tools` list and `version` in `manifest.json` from the registered tools|
 
+`node scripts/bench-cache-insert.mjs` is separate from the build. It measures how
+long the result cache takes to store a report, one row at a time against in
+batches, on rows held in memory. It needs no Tally.
+
 Both generated outputs are committed, so a plain `tsc` still works. Do not edit
 `src/templates.generated.mts` or the `tools` array in `manifest.json` by hand.
 Change the `.njk` file or the tool definition and run `pnpm build`.
@@ -177,6 +181,24 @@ This mode of setup is to be used, when using browser-based MCP client like ChatG
 ## Available Tools
 
 This server currently exposes 30 MCP tools.
+
+### What a reporting tool returns
+
+Every tool that caches a result answers with the same envelope.
+
+|Property|Meaning|
+|--|--|
+|`tableID`|Name of the in-memory table holding the rows, for the *query-database* tool. Empty when there are no rows|
+|`rowCount`|Number of rows in the result. `0` with no error means the report ran and matched nothing|
+|`columns`|Column names, in order|
+|`company`|The company the result is of, when one was named|
+|`period`|`{ fromDate, toDate }`, when the tool takes a period|
+|`generatedAt`|When the result was read from Tally, as an ISO timestamp|
+|`expiresAt`|When the cached table is dropped|
+|`rows`|The rows themselves, present only when the result is small enough to carry (25 rows and 4 KB by default). It is every row or none, never a part, so a second call is needed only for a large result|
+
+A tool that fails returns the reason as an error. A request Tally refused is an
+error, not an empty result.
 
 ### metadata-collection
 Returns metadata for supported collections.
@@ -399,6 +421,7 @@ Fetches ledger account statement for period.
 |ledgerName|Ledger name|
 |fromDate|Date in YYYY-MM-DD|
 |toDate|Date in YYYY-MM-DD|
+|includeNarration (optional)|Default `true`. Set `false` on a long history to have Tally leave the narration out of the export. The `narration` column is then empty|
 
 **Output**
 JSON: `{ "tableID": "..." }` with columns:
@@ -447,6 +470,7 @@ Fetches the daybook, one row per voucher entered in the period.
 |partyLedgerName (optional)|Exact party ledger name to filter on|
 |includeCancelled (optional)|Default `false`|
 |includeOptional (optional)|Default `false`|
+|includeNarration (optional)|Default `true`. Set `false` on a long period to have Tally leave the narration out of the export|
 |limit (optional)|Page size, default and maximum 1000|
 |offset (optional)|Rows to skip, default 0|
 
@@ -699,6 +723,11 @@ End-users are free to hard-code few settings which needs to be applied
 |TALLY_HOST|Host name or IP where XML Server is running (*optional*, default is **localhost**)|
 |TALLY_TIMEOUT|Milliseconds to wait for a reply from Tally before giving up (*optional*, default is **120000**, i.e. 2 minutes)|
 |CACHE_TABLE_TTL_MS|Milliseconds a cached result table survives before it is dropped (*optional*, default is **900000**, i.e. 15 minutes)|
+|TALLY_MAX_CONCURRENT|Requests allowed against one Tally at a time, per host and port (optional, default **4**). Tally builds one report at a time, so a higher number mostly moves the queue into Tally. Set **0** to remove the limit|
+|CACHE_INSERT_BATCH_ROWS|Rows sent to the in-memory database in one INSERT (optional, default **500**). Held below the 32767 bind parameters a statement may carry, whatever is set here|
+|INLINE_ROW_LIMIT|A result of this many rows or fewer is also returned inline under `rows`, so reading it needs no second call (optional, default **25**). Set **0** to always answer with the table id alone|
+|INLINE_BYTE_LIMIT|Upper bound in bytes on an inline result, so a few long narrations cannot make a large response (optional, default **4096**)|
+|TRACE|Set to **1** to emit one structured timing record per tool call on stderr: queue wait, wait for Tally's first byte, the whole Tally request with byte counts, the cache insert with its row count, and the SQL. Stage names, durations and sizes only (optional, default **0**)|
 |BLOCK_WRITE|Controls if MCP completely block access of write functionality. Setting this flag to value **1** will completely hide write functionality tools from the tool list. [ **0 = Allow , 1 = Block** ] (optional, default is **0** i.e. allowed). Not applicable for Claude Desktop (as it offers graphical switch to disable write functionality)|
 |PORT|Tally MCP Server port number. Applicable only if Tally Prime MCP Server is deployed as Remote MCP server (*optional*, default is **3000**). Not applicable for Claude Desktop|
 |MCP_DOMAIN|Domain name of Tally MCP Server website (*optional*, default is https://localhost:9000). Not applicable for Claude Desktop|

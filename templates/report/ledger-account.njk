@@ -30,7 +30,7 @@
                         <SCROLLED>Vertical</SCROLLED>
                     </PART>
                     <LINE NAME="MyLine01">
-                        <FIELDS>FldGuid,FldDate,FldVoucherType,FldVoucherNumber,FldAlternateLedger,FldPartyLedger,FldAmount,FldNarration</FIELDS>
+                        <FIELDS>FldGuid,FldDate,FldVoucherType,FldVoucherNumber,FldAlternateLedger,FldPartyLedger,FldAmount{% if includeNarration %},FldNarration{% endif %}</FIELDS>
                         <XMLTAG>ROW</XMLTAG>
                     </LINE>
                     <LINE NAME="MyLineOp">
@@ -65,10 +65,12 @@
                         <SET>if $$IsDebit:($AllLedgerEntries[1,@@FilterLedgerEqual].Amount) then -$$NumValue:$$FilterAmtTotal:AllLedgerEntries:FilterLedgerEqual:$Amount else $$NumValue:$$FilterAmtTotal:AllLedgerEntries:FilterLedgerEqual:$Amount</SET>
                         <XMLTAG>amount</XMLTAG>
                     </FIELD>
+                    {% if includeNarration %}
                     <FIELD NAME="FldNarration">
                         <SET>$Narration</SET>
                         <XMLTAG>narration</XMLTAG>
                     </FIELD>
+                    {% endif %}
                     <FIELD NAME="FldDateOp">
                         <SET>##SVFromDate</SET>
                         <XMLTAG>date</XMLTAG>
@@ -83,7 +85,7 @@
                     </FIELD>
                     <COLLECTION NAME="MyCollection">
                         <TYPE>Voucher</TYPE>
-                        <FETCH>AllLedgerEntries,Narration,PartyLedgerName</FETCH>
+                        <FETCH>AllLedgerEntries,PartyLedgerName{% if includeNarration %},Narration{% endif %}</FETCH>
                         <FILTER>FilterLedger,FilterExcludeInventoryVch,FilterExcludeOrderVch,FilterCancelledVouchers,FilterOptionalVouchers</FILTER>
                     </COLLECTION>
                     <SYSTEM TYPE="Formulae" NAME="FilterLedger">NOT $$IsEmpty:$AllLedgerEntries[1,@@FilterLedgerEqual].LedgerName</SYSTEM>

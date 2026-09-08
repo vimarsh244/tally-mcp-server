@@ -136,6 +136,8 @@ async function daybookOn(date, company) {
         ['fromDate', date], ['toDate', date],
         ['voucherType', ''], ['partyLedgerName', ''],
         ['includeCancelled', true], ['includeOptional', true],
+        // only the identity of the voucher is needed here, not its text
+        ['includeNarration', false],
     ]);
     if (company)
         inputs.set('targetCompany', company);

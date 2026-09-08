@@ -218,7 +218,8 @@ export const lstReportConfig = [
         input: [
             { name: 'fromDate', datatype: 'date' },
             { name: 'toDate', datatype: 'date' },
-            { name: 'ledgerName', datatype: 'string' }
+            { name: 'ledgerName', datatype: 'string' },
+            { name: 'includeNarration', datatype: 'boolean' }
         ],
         output: [
             { name: 'guid', datatype: 'string' },
@@ -239,7 +240,8 @@ export const lstReportConfig = [
             { name: 'voucherType', datatype: 'string' },
             { name: 'partyLedgerName', datatype: 'string' },
             { name: 'includeCancelled', datatype: 'boolean' },
-            { name: 'includeOptional', datatype: 'boolean' }
+            { name: 'includeOptional', datatype: 'boolean' },
+            { name: 'includeNarration', datatype: 'boolean' }
         ],
         output: [
             { name: 'guid', datatype: 'string' },

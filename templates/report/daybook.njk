@@ -30,7 +30,7 @@
                         <SCROLLED>Vertical</SCROLLED>
                     </PART>
                     <LINE NAME="MyLine01">
-                        <FIELDS>FldGuid,FldDate,FldVoucherType,FldVoucherNumber,FldReference,FldPartyLedger,FldAmount,FldNarration,FldIsCancelled,FldIsOptional</FIELDS>
+                        <FIELDS>FldGuid,FldDate,FldVoucherType,FldVoucherNumber,FldReference,FldPartyLedger,FldAmount{% if includeNarration %},FldNarration{% endif %},FldIsCancelled,FldIsOptional</FIELDS>
                         <XMLTAG>ROW</XMLTAG>
                     </LINE>
                     <FIELD NAME="FldGuid">
@@ -61,10 +61,12 @@
                         <SET>-$$NumValue:$$FilterAmtTotal:AllLedgerEntries:FilterDebitEntries:$Amount</SET>
                         <XMLTAG>amount</XMLTAG>
                     </FIELD>
+                    {% if includeNarration %}
                     <FIELD NAME="FldNarration">
                         <SET>$Narration</SET>
                         <XMLTAG>narration</XMLTAG>
                     </FIELD>
+                    {% endif %}
                     <FIELD NAME="FldIsCancelled">
                         <SET>if $IsCancelled then 1 else 0</SET>
                         <XMLTAG>is_cancelled</XMLTAG>
@@ -75,7 +77,7 @@
                     </FIELD>
                     <COLLECTION NAME="MyCollection">
                         <TYPE>Voucher</TYPE>
-                        <FETCH>AllLedgerEntries,Narration,PartyLedgerName,Reference</FETCH>
+                        <FETCH>AllLedgerEntries,PartyLedgerName,Reference{% if includeNarration %},Narration{% endif %}</FETCH>
                         {% if voucherType or partyLedgerName or not includeCancelled or not includeOptional %}
                         <FILTER>{% set comma = joiner() %}{% if voucherType %}{{ comma() }}FilterVoucherType{% endif %}{% if partyLedgerName %}{{ comma() }}FilterParty{% endif %}{% if not includeCancelled %}{{ comma() }}FilterCancelledVouchers{% endif %}{% if not includeOptional %}{{ comma() }}FilterOptionalVouchers{% endif %}</FILTER>
                         {% endif %}

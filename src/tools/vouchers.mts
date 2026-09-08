@@ -38,7 +38,8 @@ export const voucherTools: ToolModule = ({ server, cache }) => {
             includeCancelled: z.boolean().optional().describe('optional, default false. cancelled vouchers keep their number but carry no entries'),
             includeOptional: z.boolean().optional().describe('optional, default false. optional vouchers do not affect the books'),
             limit: z.number().int().min(1).max(MAX_PAGE_SIZE).optional().describe(`optional page size, default and maximum ${MAX_PAGE_SIZE}`),
-            offset: z.number().int().min(0).optional().describe('optional number of rows to skip, default 0. use next_offset from the previous call'),
+            offset: z.number().int().min(0).optional().describe('optional number of rows to skip, default 0. use nextOffset from the previous call'),
+            includeNarration: z.boolean().optional().describe('optional, default true. set false on a long period to have Tally skip the narration text, which is the largest field of a daybook. the narration column is then empty'),
         },
         annotations: readOnly,
     }, guard(async (args) => {
@@ -50,6 +51,7 @@ export const voucherTools: ToolModule = ({ server, cache }) => {
             ['partyLedgerName', tdlString(args.partyLedgerName ?? '')],
             ['includeCancelled', args.includeCancelled === true],
             ['includeOptional', args.includeOptional === true],
+            ['includeNarration', args.includeNarration !== false],
         ]);
         if (args.targetCompany) inputs.set('targetCompany', args.targetCompany);
 
@@ -98,6 +100,7 @@ export const voucherTools: ToolModule = ({ server, cache }) => {
             // a cancelled or optional voucher must still be readable by guid
             ['includeCancelled', true],
             ['includeOptional', true],
+            ['includeNarration', true],
         ]);
         if (args.targetCompany) header.set('targetCompany', args.targetCompany);
 

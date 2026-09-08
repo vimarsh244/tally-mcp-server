@@ -12,9 +12,9 @@ import { tallyTemplates } from '../dist/templates.generated.mjs';
 const date = new Date(2024, 3, 1);
 
 const reportInputs = {
-    'report/ledger-account': { fromDate: date, toDate: date, ledgerName: 'Acme Ltd' },
+    'report/ledger-account': { fromDate: date, toDate: date, ledgerName: 'Acme Ltd', includeNarration: true },
     'report/stock-item-account': { fromDate: date, toDate: date, itemName: 'Widget' },
-    'report/daybook': { fromDate: date, toDate: date, voucherType: 'Sales', partyLedgerName: 'Acme Ltd', includeCancelled: false, includeOptional: false },
+    'report/daybook': { fromDate: date, toDate: date, voucherType: 'Sales', partyLedgerName: 'Acme Ltd', includeCancelled: false, includeOptional: false, includeNarration: true },
     'report/voucher-ledger-entries': { fromDate: date, toDate: date, voucherGuid: 'g-1' },
     'report/voucher-bill-allocations': { fromDate: date, toDate: date, voucherGuid: 'g-1' },
     'report/voucher-inventory-entries': { fromDate: date, toDate: date, voucherGuid: 'g-1' },

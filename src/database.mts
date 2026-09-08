@@ -11,6 +11,18 @@ import { PGlite } from '@electric-sql/pglite';
 import { utility } from './utility.mjs';
 import { config } from './config.mjs';
 import { sqlIdentifier } from './escape.mjs';
+import { record } from './trace.mjs';
+
+/**
+ * Bind parameters one statement may carry.
+ *
+ * The wire protocol counts them in a signed 16 bit field, so 32767 is the
+ * ceiling. Going over it does not raise an error: PGlite answers that statement,
+ * and every later query on the same connection, with an empty result. A wrong
+ * answer with no error is worse than a failure, so the batch size is held below
+ * this whatever CACHE_INSERT_BATCH_ROWS says.
+ */
+const MAX_BIND_PARAMETERS = 32767;
 
 const PG_DATE_OID = 1082;
 const PG_NUMERIC_OID = 1700;
@@ -61,6 +73,7 @@ const cellToText = (value: string | number | boolean | null): string => value ==
 export class ResultCache {
     private readonly pg: PGlite;
     private readonly timers = new Set<NodeJS.Timeout>();
+    private closed = false;
 
     private constructor(pg: PGlite) {
         this.pg = pg;
@@ -82,15 +95,42 @@ export class ResultCache {
         const columns = [...lstColumnMetadata];
 
         const columnSql = columns.map(([name, type]) => `${sqlIdentifier(name)} ${sqlTypeFor(type)}`).join(', ');
-        await this.pg.exec(`CREATE TABLE ${tableId} (${columnSql});`);
+        const columnList = columns.map(([name]) => sqlIdentifier(name)).join(', ');
 
-        const insertSql = `INSERT INTO ${tableId} (${columns.map(([name]) => sqlIdentifier(name)).join(', ')})`
-            + ` VALUES (${columns.map((_, i) => `$${i + 1}`).join(', ')})`;
+        // one statement per row cost a round trip per row, which was the whole
+        // of the insert time on a long statement. The rows go in batches now,
+        // bounded by the row count asked for and by the parameter limit
+        const rowsPerBatch = Math.max(1, Math.min(
+            config.cacheInsertBatchRows,
+            Math.floor(MAX_BIND_PARAMETERS / Math.max(columns.length, 1))));
 
+        const started = process.hrtime.bigint();
+        let batches = 0;
+
+        // the table is created inside the transaction too, so a batch that fails
+        // leaves nothing behind at all rather than an empty table
         await this.pg.transaction(async (tx) => {
-            for (const row of data)
-                await tx.query(insertSql, columns.map(([name, type]) => toColumnValue(row[name], type)));
+            // query, not exec: exec uses the simple protocol, which can commit
+            // the surrounding transaction out from under the inserts
+            await tx.query(`CREATE TABLE ${tableId} (${columnSql})`);
+
+            for (let start = 0; start < data.length; start += rowsPerBatch) {
+                const values: (string | number | boolean | null)[] = [];
+                const tuples = data.slice(start, start + rowsPerBatch).map((row) => {
+                    const placeholders = columns.map(([name, type]) => {
+                        values.push(toColumnValue(row[name], type));
+                        return `$${values.length}`;
+                    });
+                    return `(${placeholders.join(', ')})`;
+                });
+
+                await tx.query(`INSERT INTO ${tableId} (${columnList}) VALUES ${tuples.join(', ')}`, values);
+                batches++;
+            }
         });
+
+        record('cache.insert', Math.round(Number(process.hrtime.bigint() - started) / 1e3) / 1e3,
+            { rows: data.length, columns: columns.length, batches });
 
         // unref so a pending drop never holds the process open
         const timer = setTimeout(() => {
@@ -113,7 +153,11 @@ export class ResultCache {
         if (!/^select\b/i.test(statement))
             throw new Error('Only SELECT queries are permitted');
 
+        const started = process.hrtime.bigint();
         const result = await this.pg.query<unknown[]>(statement, [], { rowMode: 'array' });
+        record('cache.query', Math.round(Number(process.hrtime.bigint() - started) / 1e3) / 1e3,
+            { rows: result.rows.length });
+
         const header = result.fields.map((f) => f.name);
         const types = result.fields.map((f) => f.dataTypeID);
         const rows = result.rows.map((row) => row.map((cell, c) => normalizeCell(cell, types[c])));
@@ -134,10 +178,20 @@ export class ResultCache {
         return JSON.stringify(rows.map((row) => Object.fromEntries(header.map((name, c) => [name, row[c]]))));
     }
 
-    /** Drops every pending table timer. Used when a session ends. */
+    /**
+     * Releases the session's tables and the database behind them.
+     *
+     * Clearing the timers used to be all this did, so the PGlite instance and
+     * every table in it stayed in memory for the life of the process, one per
+     * session that had ever connected. Calling it twice is harmless.
+     */
     close(): void {
         for (const timer of this.timers) clearTimeout(timer);
         this.timers.clear();
+
+        if (this.closed) return;
+        this.closed = true;
+        void this.pg.close().catch(() => undefined);
     }
 }
 
