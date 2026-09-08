@@ -12,6 +12,7 @@ import { ResultCache } from '../dist/database.mjs';
 import { postTallyXml } from '../dist/tally/index.mjs';
 import { runWithTallyTarget } from '../dist/tally-target.mjs';
 import { registerMcpServer } from '../dist/mcp.mjs';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { config } from '../dist/config.mjs';
 
 const run = promisify(execFile);
@@ -106,6 +107,37 @@ test('the cache is released when the session ends', async () => {
     await assert.rejects(() => callTool(server, 'query-database', { sql: `SELECT * FROM ${tableID}` })
         .then((r) => { if (r.isError) throw new Error(r.text); }),
         'the database should be gone with the session');
+});
+
+test('registering a session starts no database', async () => {
+    // starting PGlite takes about 1.7 seconds, and it used to happen while the
+    // session was being registered, which is what a client waits on
+    const started = performance.now();
+    const server = await registerMcpServer();
+    const ms = performance.now() - started;
+
+    assert.ok(ms < 500, `registering took ${ms.toFixed(0)} ms, the database is being started too early`);
+
+    const { isError, text } = await callTool(server, 'query-database', { sql: 'SELECT 1' });
+    assert.equal(isError, true);
+    assert.match(text, /No result has been cached in this session yet/);
+
+    await server.close();
+});
+
+test('the database goes when the transport closes', async () => {
+    const server = await registerMcpServer();
+    const [, serverSide] = InMemoryTransport.createLinkedPair();
+    await server.connect(serverSide);
+
+    const { text } = await runWithTallyTarget({ host: '127.0.0.1', port: tally.port, timeout: 5000 },
+        () => callTool(server, 'query-collection', { collection: 'Group', fields: ['Name'] }));
+    const { tableID } = JSON.parse(text);
+
+    await serverSide.close();
+
+    const after = await callTool(server, 'query-database', { sql: `SELECT * FROM ${tableID}` });
+    assert.equal(after.isError, true, 'the session ended, so its tables should be gone');
 });
 
 test('a trace explains where the time of a tool call went', async () => {

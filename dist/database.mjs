@@ -63,14 +63,28 @@ const escapeCsv = (value) => /[,"\n\r]/.test(value) ? `"${value.replace(/"/g, '"
 const escapeMarkdown = (value) => value.replace(/\|/g, '\\|');
 const cellToText = (value) => value === null ? '' : value.toString();
 export class ResultCache {
-    pg;
     timers = new Set();
+    database;
     closed = false;
-    constructor(pg) {
-        this.pg = pg;
-    }
     static async create() {
-        return new ResultCache(await PGlite.create('memory://'));
+        return new ResultCache();
+    }
+    /**
+     * The database, started on first use.
+     *
+     * Starting PGlite takes about 1.7 seconds on the machine this was measured
+     * on, and it used to happen while the session was being registered, which is
+     * what a client waits for before it can call anything. A session that only
+     * reads a balance, sets a company or writes a master never needs a database
+     * at all, and one that does need it pays the same cost a moment later,
+     * against its first report instead of against the handshake.
+     */
+    db() {
+        if (this.closed)
+            return Promise.reject(new Error('This result cache has been closed'));
+        // assigned before it resolves, so two calls at once share one database
+        this.database ??= PGlite.create('memory://');
+        return this.database;
     }
     /**
      * Stores rows in a fresh table and returns its id. An empty result yields an
@@ -89,9 +103,10 @@ export class ResultCache {
         const rowsPerBatch = Math.max(1, Math.min(config.cacheInsertBatchRows, Math.floor(MAX_BIND_PARAMETERS / Math.max(columns.length, 1))));
         const started = process.hrtime.bigint();
         let batches = 0;
+        const pg = await this.db();
         // the table is created inside the transaction too, so a batch that fails
         // leaves nothing behind at all rather than an empty table
-        await this.pg.transaction(async (tx) => {
+        await pg.transaction(async (tx) => {
             // query, not exec: exec uses the simple protocol, which can commit
             // the surrounding transaction out from under the inserts
             await tx.query(`CREATE TABLE ${tableId} (${columnSql})`);
@@ -112,7 +127,7 @@ export class ResultCache {
         // unref so a pending drop never holds the process open
         const timer = setTimeout(() => {
             this.timers.delete(timer);
-            void this.pg.exec(`DROP TABLE IF EXISTS ${tableId};`).catch(() => undefined);
+            void pg.exec(`DROP TABLE IF EXISTS ${tableId};`).catch(() => undefined);
         }, config.cacheTableTtlMs);
         timer.unref?.();
         this.timers.add(timer);
@@ -127,8 +142,13 @@ export class ResultCache {
         // check that only looked for a leading SELECT.
         if (!/^select\b/i.test(statement))
             throw new Error('Only SELECT queries are permitted');
+        // nothing has been cached, so no table this query could name can exist.
+        // Answering here also avoids starting a database only to fail on it
+        if (!this.database)
+            throw new Error('No result has been cached in this session yet. Run a reporting tool first and query the tableID it returns');
         const started = process.hrtime.bigint();
-        const result = await this.pg.query(statement, [], { rowMode: 'array' });
+        const pg = await this.db();
+        const result = await pg.query(statement, [], { rowMode: 'array' });
         record('cache.query', Math.round(Number(process.hrtime.bigint() - started) / 1e3) / 1e3, { rows: result.rows.length });
         const header = result.fields.map((f) => f.name);
         const types = result.fields.map((f) => f.dataTypeID);
@@ -159,7 +179,10 @@ export class ResultCache {
         if (this.closed)
             return;
         this.closed = true;
-        void this.pg.close().catch(() => undefined);
+        // a database that was never needed was never started
+        const pending = this.database;
+        if (pending)
+            void pending.then((pg) => pg.close()).catch(() => undefined);
     }
 }
 function normalizeCell(cellValue, dataTypeID) {

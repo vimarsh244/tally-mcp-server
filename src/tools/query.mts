@@ -23,7 +23,9 @@ export const queryTools: ToolModule = ({ server, cache }) => {
                 .describe('optional output format, default is JSON Array of Objects. JSON Array of Objects = [{"column1": "value1", "column2": "value2"}, {...}] , JSON with Schema and Rows = {"schema": ["column1", "column2"], "rows": [["value1", "value2"], [...]]}, CSV = comma separated values with header, Markdown Table = table format with header in markdown syntax which can be directly rendered in markdown supported viewers'),
         },
         annotations: readOnly,
-    }, async (args) => okText(await cache.executeSQL(args.sql, (args.outputFormat as OutputFormat) ?? 'JSON Array of Objects')));
+        // guarded like every other tool, so a syntax error or a table that has
+        // expired comes back as an error result and not as a transport failure
+    }, guard(async (args) => okText(await cache.executeSQL(args.sql, (args.outputFormat as OutputFormat) ?? 'JSON Array of Objects'))));
 
     server.registerTool('query-collection', {
         title: 'Query Collection',
