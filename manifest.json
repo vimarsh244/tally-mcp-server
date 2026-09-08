@@ -73,7 +73,7 @@
     },
     {
       "name": "trial-balance",
-      "description": "fetches trial balance with fields ledger_name, group_name (blank if Profit & Loss), opening_balance, net_debit, net_credit, closing_balance. opening_balance and closing_balance negative is debit and positive is credit. kindly fetch data from chart-of-accounts tool to pull group hierarchy before calling this tool. returns output cached in pglite postgres in-memory table (specified in tableID property). Use query-database tool to run SQL queries against that table for further analysis"
+      "description": "fetches trial balance with fields ledger_name, group_name (blank if Profit & Loss), opening_balance, net_debit, net_credit, closing_balance. opening_balance and closing_balance negative is debit and positive is credit. checks holds the total of each column, and on a balanced set of books the opening and closing totals are zero. kindly fetch data from chart-of-accounts tool to pull group hierarchy before calling this tool. returns output cached in pglite postgres in-memory table (specified in tableID property). Use query-database tool to run SQL queries against that table for further analysis"
     },
     {
       "name": "profit-loss",
@@ -81,7 +81,7 @@
     },
     {
       "name": "balance-sheet",
-      "description": "fetches balance sheet with fields like ledger_name, group_name (blank if Profit & Loss A/c), closing_balance. closing balance negative is debit or asset and positive is credit or liability. kindly fetch data from chart-of-accounts tool to pull group hierarchy before calling this tool. returns output cached in pglite postgres in-memory table (specified in tableID property). Use query-database tool to run SQL queries against that table for further analysis"
+      "description": "fetches balance sheet with fields like ledger_name, group_name (blank if Profit & Loss A/c), closing_balance. closing balance negative is debit or asset and positive is credit or liability. Profit & Loss A/c carries the result of the period and is reported once, with a blank group_name. checks.closingBalanceTotal adds every row up and should be zero on a balanced set of books. kindly fetch data from chart-of-accounts tool to pull group hierarchy before calling this tool. returns output cached in pglite postgres in-memory table (specified in tableID property). Use query-database tool to run SQL queries against that table for further analysis"
     },
     {
       "name": "list-master",
@@ -113,7 +113,7 @@
     },
     {
       "name": "daybook",
-      "description": "fetches the daybook, one row per voucher entered in the period, with fields guid, date, voucher_type, voucher_number, reference, party_name, amount, narration, is_cancelled, is_optional. amount = total debit value of the voucher, always positive, and is zero for a voucher with no accounting entry such as a stock journal. guid is the stable identifier to pass to the voucher-get tool. results are paged, so read row_count, has_more and next_offset from the response and call again with offset to continue. returns output cached in pglite postgres in-memory table (specified in tableID property). Use query-database tool to run SQL queries against that table for further analysis"
+      "description": "fetches the daybook, one row per voucher entered in the period, with fields guid, date, voucher_type, voucher_number, reference, party_name, amount, narration, is_cancelled, is_optional. amount = total debit value of the voucher, always positive, and is zero for a voucher with no accounting entry such as a stock journal. guid is the stable identifier to pass to the voucher-get tool. results are paged, so read rowCount, hasMore and nextOffset from the response and call again with offset to continue. returns output cached in pglite postgres in-memory table (specified in tableID property), and a small page is also returned inline under rows. Use query-database tool to run SQL queries against that table for further analysis"
     },
     {
       "name": "voucher-get",

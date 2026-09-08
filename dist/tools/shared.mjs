@@ -6,6 +6,8 @@
  * error result. That body is written once here.
  */
 import { z } from 'zod';
+import { displayRows } from '../database.mjs';
+import { config } from '../config.mjs';
 import { lstCollectionFields } from '../definition.mjs';
 export const collectionNames = lstCollectionFields.map((item) => item.collection);
 /**
@@ -49,16 +51,45 @@ export const targetCompany = () => z.string().optional()
 export const readOnly = { readOnlyHint: true, openWorldHint: false };
 export const writes = { readOnlyHint: false, openWorldHint: false, destructiveHint: true, idempotentHint: true };
 export const changesContext = { readOnlyHint: false, openWorldHint: false, destructiveHint: false, idempotentHint: true };
-/** Caches rows and returns the standard `{ tableID }` payload. */
-export async function cachedTable(cache, columns, rows) {
-    return ok({ tableID: await cache.cacheTable(columns, rows) });
-}
 /**
- * Caches rows and returns the table id together with extra payload fields,
- * for a tool that also has to report a row count or a paging position.
+ * Caches rows and returns the result envelope.
+ *
+ * An empty result used to be an empty table id and nothing else, so a caller
+ * had to guess whether the report had failed or was simply empty. rowCount
+ * says which, and the company and the period say what the numbers are of.
+ *
+ * A small result is also returned inline under `rows`, in exactly the form
+ * query-database would give for the same table, so reading three rows does not
+ * need a second round trip. `rows` is either every row or absent, never a part.
  */
-export async function cachedTableWith(cache, columns, rows, extra) {
-    return ok({ tableID: await cache.cacheTable(columns, rows), ...extra });
+export async function cachedTable(cache, columns, rows, meta = {}, extra = {}) {
+    const tableID = await cache.cacheTable(columns, rows);
+    const payload = {
+        tableID,
+        rowCount: rows.length,
+        columns: [...columns.keys()],
+    };
+    if (meta.company)
+        payload.company = meta.company;
+    if (meta.fromDate)
+        payload.period = { fromDate: meta.fromDate, toDate: meta.toDate };
+    payload.generatedAt = new Date().toISOString();
+    if (tableID)
+        payload.expiresAt = new Date(Date.now() + config.cacheTableTtlMs).toISOString();
+    const inline = inlineRows(columns, rows);
+    if (inline)
+        payload.rows = inline;
+    return ok({ ...payload, ...extra });
+}
+/** Returns every row when the result is small enough to carry, otherwise nothing. */
+function inlineRows(columns, rows) {
+    if (config.inlineRowLimit <= 0 || rows.length === 0 || rows.length > config.inlineRowLimit)
+        return undefined;
+    const shaped = displayRows(columns, rows);
+    // a narration or an address can be long, so the row count alone is not a bound
+    if (JSON.stringify(shaped).length > config.inlineByteLimit)
+        return undefined;
+    return shaped;
 }
 /** Builds a column map from pairs, keeping the call sites readable. */
 export const columns = (...pairs) => new Map(pairs);

@@ -1,6 +1,6 @@
 /** Tools that create, update or delete Tally masters. Hidden when BLOCK_WRITE is set. */
 import { z } from 'zod';
-import { deleteMasters, importMasters, queryCollection } from '../tally/index.mjs';
+import { companyList, deleteMasters, forgetCompanies, importMasters, queryCollection } from '../tally/index.mjs';
 import { collectionNames, fail, guard, isoDate, ok, targetCompany, writes } from './shared.mjs';
 /** Tally keeps an address as a list of lines, but one line is the common case. */
 const addressLines = z.union([z.string(), z.array(z.string())]).optional()
@@ -82,7 +82,7 @@ function toLedgerPayload(master, booksBeginFrom) {
 }
 /** Company row used for the dates a ledger master needs, or an error result explaining why there is none. */
 async function resolveCompany(name) {
-    const companies = await queryCollection('Company', ['Name', 'BooksFrom', 'IsActiveCompany'], new Map());
+    const companies = await companyList(Boolean(name));
     if (companies.length === 0)
         return { error: fail('No company found to determine books begin from date') };
     const company = name
@@ -266,6 +266,7 @@ export const writeTools = ({ server }) => {
                 isInventory: args.isInventory !== false,
                 isCostCentres: args.isCostCentres === true,
             }]);
+        forgetCompanies(); // the list this process remembers no longer matches Tally
         return ok(await importMasters('company', input));
     }));
     server.registerTool('delete-master', {

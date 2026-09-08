@@ -1,7 +1,7 @@
 /** Tools that change Tally's global company and period context. */
 
 import { utility } from '../utility.mjs';
-import { invokeTallyAction } from '../tally/index.mjs';
+import { forgetCompanies, invokeTallyAction } from '../tally/index.mjs';
 import { changesContext, guard, isoDate, ok, type ToolModule } from './shared.mjs';
 import { z } from 'zod';
 
@@ -17,6 +17,7 @@ export const contextTools: ToolModule = ({ server }) => {
         annotations: changesContext,
     }, guard(async (args) => {
         await invokeTallyAction('ChangeCurrentCompany', new Map([['SVCurrentCompany', utility.String.escapeHTML(args.companyName)]]));
+        forgetCompanies(); // a different company is active now
         return ok('OK');
     }));
 

@@ -59,6 +59,27 @@ export const config = {
     cacheTableTtlMs: toInt(process.env.CACHE_TABLE_TTL_MS, 15 * 60 * 1000),
 
     /**
+     * A small result is also returned inline, so the caller does not have to
+     * spend a second round trip on query-database to read three rows. Set
+     * INLINE_ROW_LIMIT to 0 to always answer with the table id alone.
+     */
+    inlineRowLimit: toInt(process.env.INLINE_ROW_LIMIT, 25),
+    inlineByteLimit: toInt(process.env.INLINE_BYTE_LIMIT, 4096),
+
+    /** Rows sent to PGlite in one INSERT. */
+    cacheInsertBatchRows: toInt(process.env.CACHE_INSERT_BATCH_ROWS, 500),
+
+    /**
+     * Requests allowed to be in flight against one Tally instance at a time.
+     * Tally answers one report at a time, so more than a few in parallel only
+     * moves the queue from Tally into a longer wait for everyone.
+     */
+    tallyMaxConcurrent: toInt(process.env.TALLY_MAX_CONCURRENT, 4),
+
+    /** Emits one structured timing record per tool call on stderr when set to '1'. */
+    trace: process.env.TRACE === '1',
+
+    /**
      * Turns on the profile registry and the setup page. One Windows Server runs
      * a copy of Tally per signed in user, each on its own XML port, so one
      * listener has to serve several of them. Off by default, which leaves the

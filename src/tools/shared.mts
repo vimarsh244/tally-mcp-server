@@ -8,7 +8,8 @@
 
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { ResultCache } from '../database.mjs';
+import { displayRows, type ResultCache } from '../database.mjs';
+import { config } from '../config.mjs';
 import { lstCollectionFields } from '../definition.mjs';
 
 export type ToolResult = {
@@ -75,17 +76,62 @@ export const changesContext = { readOnlyHint: false, openWorldHint: false, destr
 /** Column name to cache type, in the order the columns should appear. */
 export type ColumnMap = Map<string, string>;
 
-/** Caches rows and returns the standard `{ tableID }` payload. */
-export async function cachedTable(cache: ResultCache, columns: ColumnMap, rows: any[]): Promise<ToolResult> {
-    return ok({ tableID: await cache.cacheTable(columns, rows) });
+/** What the result is of, so a caller can tell two cached tables apart. */
+export interface ResultMeta {
+    company?: string;
+    fromDate?: string;
+    toDate?: string;
 }
 
 /**
- * Caches rows and returns the table id together with extra payload fields,
- * for a tool that also has to report a row count or a paging position.
+ * Caches rows and returns the result envelope.
+ *
+ * An empty result used to be an empty table id and nothing else, so a caller
+ * had to guess whether the report had failed or was simply empty. rowCount
+ * says which, and the company and the period say what the numbers are of.
+ *
+ * A small result is also returned inline under `rows`, in exactly the form
+ * query-database would give for the same table, so reading three rows does not
+ * need a second round trip. `rows` is either every row or absent, never a part.
  */
-export async function cachedTableWith(cache: ResultCache, columns: ColumnMap, rows: any[], extra: Record<string, unknown>): Promise<ToolResult> {
-    return ok({ tableID: await cache.cacheTable(columns, rows), ...extra });
+export async function cachedTable(
+    cache: ResultCache,
+    columns: ColumnMap,
+    rows: any[],
+    meta: ResultMeta = {},
+    extra: Record<string, unknown> = {},
+): Promise<ToolResult> {
+    const tableID = await cache.cacheTable(columns, rows);
+
+    const payload: Record<string, unknown> = {
+        tableID,
+        rowCount: rows.length,
+        columns: [...columns.keys()],
+    };
+
+    if (meta.company) payload.company = meta.company;
+    if (meta.fromDate) payload.period = { fromDate: meta.fromDate, toDate: meta.toDate };
+
+    payload.generatedAt = new Date().toISOString();
+    if (tableID) payload.expiresAt = new Date(Date.now() + config.cacheTableTtlMs).toISOString();
+
+    const inline = inlineRows(columns, rows);
+    if (inline) payload.rows = inline;
+
+    return ok({ ...payload, ...extra });
+}
+
+/** Returns every row when the result is small enough to carry, otherwise nothing. */
+function inlineRows(columns: ColumnMap, rows: any[]): Record<string, any>[] | undefined {
+    if (config.inlineRowLimit <= 0 || rows.length === 0 || rows.length > config.inlineRowLimit)
+        return undefined;
+
+    const shaped = displayRows(columns, rows);
+    // a narration or an address can be long, so the row count alone is not a bound
+    if (JSON.stringify(shaped).length > config.inlineByteLimit)
+        return undefined;
+
+    return shaped;
 }
 
 /** Builds a column map from pairs, keeping the call sites readable. */

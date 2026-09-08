@@ -65,7 +65,8 @@ export const ledgerTools: ToolModule = ({ server, cache }) => {
 
         return cachedTable(cache, columns(
             ['bill_date', 'date'], ['reference_number', 'string'], ['outstanding_amount', 'number'],
-            ['party_name', 'string'], ['overdue_days', 'number']), rows);
+            ['party_name', 'string'], ['overdue_days', 'number']), rows,
+            { company: args.targetCompany, toDate: args.toDate });
     }));
 
     server.registerTool('ledger-account', {
@@ -76,6 +77,7 @@ export const ledgerTools: ToolModule = ({ server, cache }) => {
             ledgerName: z.string().describe('ledger name, always verify if ledger exists using list-master tool with collection as ledger'),
             fromDate: isoDate().describe('from or start date'),
             toDate: isoDate().describe('to or end date'),
+            includeNarration: z.boolean().optional().describe('optional, default true. set false on a long history to have Tally skip the narration text, which is the largest field of a statement. the narration column is then empty'),
         },
         annotations: readOnly,
     }, guard(async (args) => {
@@ -84,7 +86,10 @@ export const ledgerTools: ToolModule = ({ server, cache }) => {
         if (exists.length === 0)
             return fail('No ledger found with the given name');
 
-        const inputs = new Map([['fromDate', args.fromDate], ['toDate', args.toDate], ['ledgerName', args.ledgerName]]);
+        const inputs = new Map<string, any>([
+            ['fromDate', args.fromDate], ['toDate', args.toDate], ['ledgerName', args.ledgerName],
+            ['includeNarration', args.includeNarration !== false],
+        ]);
         if (args.targetCompany) inputs.set('targetCompany', args.targetCompany);
 
         const response = await fetchReport('ledger-account', inputs);
@@ -95,7 +100,8 @@ export const ledgerTools: ToolModule = ({ server, cache }) => {
 
         return cachedTable(cache, columns(
             ['guid', 'string'], ['date', 'date'], ['voucher_type', 'string'], ['voucher_number', 'string'],
-            ['alternate_ledger', 'string'], ['party_name', 'string'], ['amount', 'number'], ['narration', 'string']), rows);
+            ['alternate_ledger', 'string'], ['party_name', 'string'], ['amount', 'number'], ['narration', 'string']), rows,
+            { company: args.targetCompany, fromDate: args.fromDate, toDate: args.toDate });
     }));
 };
 

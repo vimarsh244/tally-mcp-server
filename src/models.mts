@@ -62,4 +62,6 @@ export interface CreateUpdateDeleteStatus {
     ignored?: number;
     cancelled?: number;
     exceptions?: number;
+    /** Messages Tally reported for the lines it refused, on a partly accepted import. */
+    lineErrors?: string[];
 }

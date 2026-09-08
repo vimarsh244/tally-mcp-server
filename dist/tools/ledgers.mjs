@@ -51,7 +51,7 @@ export const ledgerTools = ({ server, cache }) => {
         const primaryGroup = args.nature === 'receivable' ? 'Sundry Debtors' : 'Sundry Creditors';
         const filters = new Map([['Nature', `$$IsEqual:($_PrimaryGroup:Group:($Parent:Ledger:$Parent)):"${primaryGroup}"`]]);
         const rows = renameObjectArrayProperties(await queryCollection('Bill', ['BillDate', 'Name', 'ClosingBalance', 'Parent', '_OverDueDays'], filters, args.targetCompany, undefined, new Date(args.toDate)), new Map([['BillDate', 'bill_date'], ['Name', 'reference_number'], ['ClosingBalance', 'outstanding_amount'], ['Parent', 'party_name'], ['_OverDueDays', 'overdue_days']]));
-        return cachedTable(cache, columns(['bill_date', 'date'], ['reference_number', 'string'], ['outstanding_amount', 'number'], ['party_name', 'string'], ['overdue_days', 'number']), rows);
+        return cachedTable(cache, columns(['bill_date', 'date'], ['reference_number', 'string'], ['outstanding_amount', 'number'], ['party_name', 'string'], ['overdue_days', 'number']), rows, { company: args.targetCompany, toDate: args.toDate });
     }));
     server.registerTool('ledger-account', {
         title: 'Ledger Account',
@@ -61,6 +61,7 @@ export const ledgerTools = ({ server, cache }) => {
             ledgerName: z.string().describe('ledger name, always verify if ledger exists using list-master tool with collection as ledger'),
             fromDate: isoDate().describe('from or start date'),
             toDate: isoDate().describe('to or end date'),
+            includeNarration: z.boolean().optional().describe('optional, default true. set false on a long history to have Tally skip the narration text, which is the largest field of a statement. the narration column is then empty'),
         },
         annotations: readOnly,
     }, guard(async (args) => {
@@ -68,7 +69,10 @@ export const ledgerTools = ({ server, cache }) => {
         const exists = await queryCollection('Ledger', ['Name'], new Map([['Exact_Ledger', `$$IsEqual:$Name:${tdlQuoted(args.ledgerName)}`]]), args.targetCompany);
         if (exists.length === 0)
             return fail('No ledger found with the given name');
-        const inputs = new Map([['fromDate', args.fromDate], ['toDate', args.toDate], ['ledgerName', args.ledgerName]]);
+        const inputs = new Map([
+            ['fromDate', args.fromDate], ['toDate', args.toDate], ['ledgerName', args.ledgerName],
+            ['includeNarration', args.includeNarration !== false],
+        ]);
         if (args.targetCompany)
             inputs.set('targetCompany', args.targetCompany);
         const response = await fetchReport('ledger-account', inputs);
@@ -76,7 +80,7 @@ export const ledgerTools = ({ server, cache }) => {
             return fail(response.error);
         // the report emits party_ledger, the documented column name is party_name
         const rows = renameObjectArrayProperties(openingFirst(response.data), new Map([['party_ledger', 'party_name']]));
-        return cachedTable(cache, columns(['guid', 'string'], ['date', 'date'], ['voucher_type', 'string'], ['voucher_number', 'string'], ['alternate_ledger', 'string'], ['party_name', 'string'], ['amount', 'number'], ['narration', 'string']), rows);
+        return cachedTable(cache, columns(['guid', 'string'], ['date', 'date'], ['voucher_type', 'string'], ['voucher_number', 'string'], ['alternate_ledger', 'string'], ['party_name', 'string'], ['amount', 'number'], ['narration', 'string']), rows, { company: args.targetCompany, fromDate: args.fromDate, toDate: args.toDate });
     }));
 };
 /** Tally returns the opening balance row last, but it belongs at the top. */

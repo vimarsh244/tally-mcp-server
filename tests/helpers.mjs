@@ -21,6 +21,9 @@ const ROW = '<ROW>'
 export async function startFakeTally(port = 9000) {
     const requests = [];
     let respondWith = null; // string, or a function of the request body
+    let delayMs = 0;
+    let inFlight = 0;
+    let maxInFlight = 0;
 
     const server = http.createServer((req, res) => {
         let body = '';
@@ -28,13 +31,23 @@ export async function startFakeTally(port = 9000) {
         req.on('data', (c) => { body += c; });
         req.on('end', () => {
             requests.push(body);
+            inFlight++;
+            maxInFlight = Math.max(maxInFlight, inFlight);
+
             const override = typeof respondWith === 'function' ? respondWith(body) : respondWith;
             const out = override
                 ?? (/TALLYREQUEST>Import Data/.test(body)
                     ? '<RESPONSE><CREATED>1</CREATED><ALTERED>0</ALTERED><DELETED>1</DELETED></RESPONSE>'
                     : `<DATA>${ROW}</DATA>`);
-            res.writeHead(200, { 'Content-Type': 'text/xml;charset=utf-16' });
-            res.end(Buffer.from(out, 'utf16le'));
+
+            const reply = () => {
+                inFlight--;
+                res.writeHead(200, { 'Content-Type': 'text/xml;charset=utf-16' });
+                res.end(Buffer.from(out, 'utf16le'));
+            };
+
+            if (delayMs > 0) setTimeout(reply, delayMs);
+            else reply();
         });
     });
 
@@ -47,6 +60,10 @@ export async function startFakeTally(port = 9000) {
         lastRequest: () => requests[requests.length - 1],
         /** Accepts a fixed string, or a function returning a string (or null to fall through). */
         setResponse: (xmlOrFn) => { respondWith = xmlOrFn; },
+        /** Holds each answer back, so requests overlap and the count means something. */
+        setDelay: (ms) => { delayMs = ms; },
+        /** The most requests this server ever had open at the same time. */
+        maxInFlight: () => maxInFlight,
         close: () => new Promise((resolve) => server.close(resolve)),
     };
 }

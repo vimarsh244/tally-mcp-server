@@ -9,7 +9,7 @@
 import { z } from 'zod';
 import { fetchReport, renameObjectArrayProperties } from '../tally/index.mjs';
 import { tdlString } from '../escape.mjs';
-import { cachedTableWith, columns, fail, guard, isoDate, ok, readOnly, targetCompany, type ToolResult, type ToolModule } from './shared.mjs';
+import { cachedTable, columns, fail, guard, isoDate, ok, readOnly, targetCompany, type ToolResult, type ToolModule } from './shared.mjs';
 
 /** Upper bound on one daybook page, so a full year cannot arrive as one response. */
 const MAX_PAGE_SIZE = 1000;
@@ -28,7 +28,7 @@ export const voucherTools: ToolModule = ({ server, cache }) => {
 
     server.registerTool('daybook', {
         title: 'Daybook',
-        description: 'fetches the daybook, one row per voucher entered in the period, with fields guid, date, voucher_type, voucher_number, reference, party_name, amount, narration, is_cancelled, is_optional. amount = total debit value of the voucher, always positive, and is zero for a voucher with no accounting entry such as a stock journal. guid is the stable identifier to pass to the voucher-get tool. results are paged, so read row_count, has_more and next_offset from the response and call again with offset to continue. returns output cached in pglite postgres in-memory table (specified in tableID property). Use query-database tool to run SQL queries against that table for further analysis',
+        description: 'fetches the daybook, one row per voucher entered in the period, with fields guid, date, voucher_type, voucher_number, reference, party_name, amount, narration, is_cancelled, is_optional. amount = total debit value of the voucher, always positive, and is zero for a voucher with no accounting entry such as a stock journal. guid is the stable identifier to pass to the voucher-get tool. results are paged, so read rowCount, hasMore and nextOffset from the response and call again with offset to continue. returns output cached in pglite postgres in-memory table (specified in tableID property), and a small page is also returned inline under rows. Use query-database tool to run SQL queries against that table for further analysis',
         inputSchema: {
             targetCompany: targetCompany(),
             fromDate: isoDate().describe('from or start date'),
@@ -38,7 +38,8 @@ export const voucherTools: ToolModule = ({ server, cache }) => {
             includeCancelled: z.boolean().optional().describe('optional, default false. cancelled vouchers keep their number but carry no entries'),
             includeOptional: z.boolean().optional().describe('optional, default false. optional vouchers do not affect the books'),
             limit: z.number().int().min(1).max(MAX_PAGE_SIZE).optional().describe(`optional page size, default and maximum ${MAX_PAGE_SIZE}`),
-            offset: z.number().int().min(0).optional().describe('optional number of rows to skip, default 0. use next_offset from the previous call'),
+            offset: z.number().int().min(0).optional().describe('optional number of rows to skip, default 0. use nextOffset from the previous call'),
+            includeNarration: z.boolean().optional().describe('optional, default true. set false on a long period to have Tally skip the narration text, which is the largest field of a daybook. the narration column is then empty'),
         },
         annotations: readOnly,
     }, guard(async (args) => {
@@ -50,6 +51,7 @@ export const voucherTools: ToolModule = ({ server, cache }) => {
             ['partyLedgerName', tdlString(args.partyLedgerName ?? '')],
             ['includeCancelled', args.includeCancelled === true],
             ['includeOptional', args.includeOptional === true],
+            ['includeNarration', args.includeNarration !== false],
         ]);
         if (args.targetCompany) inputs.set('targetCompany', args.targetCompany);
 
@@ -67,15 +69,15 @@ export const voucherTools: ToolModule = ({ server, cache }) => {
         const page = all.slice(offset, offset + limit);
         const hasMore = offset + page.length < all.length;
 
-        return cachedTableWith(cache, columns(
+        return cachedTable(cache, columns(
             ['guid', 'string'], ['date', 'date'], ['voucher_type', 'string'], ['voucher_number', 'string'],
             ['reference', 'string'], ['party_name', 'string'], ['amount', 'number'], ['narration', 'string'],
-            ['is_cancelled', 'boolean'], ['is_optional', 'boolean']), page, {
-            row_count: page.length,
-            total_row_count: all.length,
-            has_more: hasMore,
-            next_offset: hasMore ? offset + page.length : null,
-        });
+            ['is_cancelled', 'boolean'], ['is_optional', 'boolean']), page,
+            { company: args.targetCompany, fromDate: args.fromDate, toDate: args.toDate }, {
+                totalRowCount: all.length,
+                hasMore,
+                nextOffset: hasMore ? offset + page.length : null,
+            });
     }));
 
     server.registerTool('voucher-get', {
@@ -98,6 +100,7 @@ export const voucherTools: ToolModule = ({ server, cache }) => {
             // a cancelled or optional voucher must still be readable by guid
             ['includeCancelled', true],
             ['includeOptional', true],
+            ['includeNarration', true],
         ]);
         if (args.targetCompany) header.set('targetCompany', args.targetCompany);
 
