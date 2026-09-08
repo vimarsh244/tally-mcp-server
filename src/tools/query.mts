@@ -54,6 +54,7 @@ export const queryTools: ToolModule = ({ server, cache }) => {
             .filter((field) => requested.includes(field.name))
             .map((field) => [field.name, cacheType(field.datatype)] as [string, string]));
 
-        return cachedTable(cache, columns, rows);
+        return cachedTable(cache, columns, rows,
+            { company: args.targetCompany, fromDate: args.fromDate, toDate: args.toDate });
     }));
 };

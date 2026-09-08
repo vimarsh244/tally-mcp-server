@@ -4,10 +4,24 @@
 import { XMLParser } from 'fast-xml-parser';
 import { hasTemplate } from '../templates.mjs';
 import { sendTallyXml } from './client.mjs';
+import { assertTallyResponse, tallyError } from './parse.mjs';
 const responseParser = new XMLParser();
-/** Tally answers an import with a single <RESPONSE> element of counters. */
+/**
+ * Tally answers an import with a single <RESPONSE> element of counters.
+ *
+ * A response with no counters at all is a failed request, not an import that
+ * changed nothing, so it is reported rather than returned as an empty object.
+ * A response that carries both counters and a line error is a partial success
+ * and keeps both.
+ */
 function importStatus(xml) {
-    return responseParser.parse(xml)?.['RESPONSE'] ?? {};
+    const status = responseParser.parse(xml)?.['RESPONSE'];
+    if (!status || typeof status !== 'object')
+        assertTallyResponse(xml); // throws when the body explains itself
+    if (!status || typeof status !== 'object')
+        throw new Error('Unexpected response structure received from Tally for an import request');
+    const lineError = tallyError(xml);
+    return lineError ? { ...status, lineErrors: [lineError] } : status;
 }
 export async function invokeTallyAction(targetAction, lstParameters) {
     const args = new Map();

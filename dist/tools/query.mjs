@@ -43,7 +43,7 @@ export const queryTools = ({ server, cache }) => {
         const columns = new Map(available
             .filter((field) => requested.includes(field.name))
             .map((field) => [field.name, cacheType(field.datatype)]));
-        return cachedTable(cache, columns, rows);
+        return cachedTable(cache, columns, rows, { company: args.targetCompany, fromDate: args.fromDate, toDate: args.toDate });
     }));
 };
 //# sourceMappingURL=query.mjs.map

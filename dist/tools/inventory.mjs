@@ -20,7 +20,7 @@ export const inventoryTools = ({ server, cache }) => {
         if (args.stockGroup)
             filters.set('Specific_StockGroup', `$$IsEqual:$Parent:${tdlQuoted(args.stockGroup)}`);
         const rows = renameObjectArrayProperties(await queryCollection('StockItem', ['Name', 'Parent', 'OpeningBalance', 'OpeningValue', 'InwardQuantity', 'InwardValue', 'OutwardQuantity', 'OutwardValue', 'ClosingBalance', 'ClosingValue', 'AffectsGrossProfit', 'SortPosition'], filters, args.targetCompany, new Date(args.fromDate), new Date(args.toDate)), new Map([['Name', 'stock_item_name'], ['Parent', 'stock_group_name'], ['OpeningBalance', 'opening_quantity'], ['OpeningValue', 'opening_value'], ['InwardQuantity', 'inward_quantity'], ['InwardValue', 'inward_value'], ['OutwardQuantity', 'outward_quantity'], ['OutwardValue', 'outward_value'], ['ClosingBalance', 'closing_quantity'], ['ClosingValue', 'closing_value']]));
-        return cachedTable(cache, columns(['stock_item_name', 'string'], ['stock_group_name', 'string'], ['opening_quantity', 'number'], ['opening_value', 'number'], ['inward_quantity', 'number'], ['inward_value', 'number'], ['outward_quantity', 'number'], ['outward_value', 'number'], ['closing_quantity', 'number'], ['closing_value', 'number']), rows);
+        return cachedTable(cache, columns(['stock_item_name', 'string'], ['stock_group_name', 'string'], ['opening_quantity', 'number'], ['opening_value', 'number'], ['inward_quantity', 'number'], ['inward_value', 'number'], ['outward_quantity', 'number'], ['outward_value', 'number'], ['closing_quantity', 'number'], ['closing_value', 'number']), rows, { company: args.targetCompany, fromDate: args.fromDate, toDate: args.toDate });
     }));
     server.registerTool('stock-item-balance', {
         title: 'Stock Item Balance',
@@ -59,7 +59,7 @@ export const inventoryTools = ({ server, cache }) => {
             return fail(response.error);
         // the report emits party_ledger, the documented column name is party_name
         const rows = renameObjectArrayProperties(openingFirst(response.data), new Map([['party_ledger', 'party_name']]));
-        return cachedTable(cache, columns(['date', 'date'], ['voucher_type', 'string'], ['voucher_number', 'string'], ['party_name', 'string'], ['quantity', 'number'], ['amount', 'number'], ['narration', 'string'], ['tracking_number', 'string'], ['voucher_category', 'string']), rows);
+        return cachedTable(cache, columns(['date', 'date'], ['voucher_type', 'string'], ['voucher_number', 'string'], ['party_name', 'string'], ['quantity', 'number'], ['amount', 'number'], ['narration', 'string'], ['tracking_number', 'string'], ['voucher_category', 'string']), rows, { company: args.targetCompany, fromDate: args.fromDate, toDate: args.toDate });
     }));
 };
 //# sourceMappingURL=inventory.mjs.map

@@ -7,7 +7,7 @@ import { utility } from '../utility.mjs';
 import { lstReportConfig } from '../definition.mjs';
 import { hasTemplate } from '../templates.mjs';
 import { sendTallyXml } from './client.mjs';
-import { exceptionMessage, parseDate, parseNumber, parseQuantity, parseText, rowParser } from './parse.mjs';
+import { parseDate, parseNumber, parseQuantity, parseText, rowParser, tallyError } from './parse.mjs';
 
 const reports: m.ModelPullReportInfo[] = lstReportConfig;
 
@@ -70,19 +70,23 @@ async function extractReport(report: m.ModelPullReportInfo, inputs: Map<string, 
 
     const response = await sendTallyXml(template as `report/${string}`, inputs);
 
-    if (!response) {
-        retval.error = 'Empty data received from Tally';
+    const error = tallyError(response);
+    if (error) {
+        retval.error = error;
         return retval;
     }
 
-    if (response.startsWith('<EXCEPTION>')) {
-        retval.error = exceptionMessage(response);
-        return retval;
-    }
-
-    const rows = rowParser.parse(response)?.['DATA']?.['ROW'];
-    if (!Array.isArray(rows)) {
+    const parsed = rowParser.parse(response);
+    if (!parsed || !('DATA' in parsed)) {
         retval.error = 'Unexpected response structure received from Tally';
+        return retval;
+    }
+
+    // a report that matched nothing answers with an empty data tag, which is a
+    // result of zero rows rather than a failure
+    const rows = parsed['DATA']?.['ROW'];
+    if (!Array.isArray(rows)) {
+        retval.data = [];
         return retval;
     }
 

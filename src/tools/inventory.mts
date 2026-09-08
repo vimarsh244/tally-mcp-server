@@ -34,7 +34,8 @@ export const inventoryTools: ToolModule = ({ server, cache }) => {
             ['opening_quantity', 'number'], ['opening_value', 'number'],
             ['inward_quantity', 'number'], ['inward_value', 'number'],
             ['outward_quantity', 'number'], ['outward_value', 'number'],
-            ['closing_quantity', 'number'], ['closing_value', 'number']), rows);
+            ['closing_quantity', 'number'], ['closing_value', 'number']), rows,
+            { company: args.targetCompany, fromDate: args.fromDate, toDate: args.toDate });
     }));
 
     server.registerTool('stock-item-balance', {
@@ -80,6 +81,7 @@ export const inventoryTools: ToolModule = ({ server, cache }) => {
         return cachedTable(cache, columns(
             ['date', 'date'], ['voucher_type', 'string'], ['voucher_number', 'string'], ['party_name', 'string'],
             ['quantity', 'number'], ['amount', 'number'], ['narration', 'string'],
-            ['tracking_number', 'string'], ['voucher_category', 'string']), rows);
+            ['tracking_number', 'string'], ['voucher_category', 'string']), rows,
+            { company: args.targetCompany, fromDate: args.fromDate, toDate: args.toDate });
     }));
 };

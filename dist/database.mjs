@@ -36,6 +36,18 @@ const toColumnValue = (value, colType) => {
         return value instanceof Date ? utility.Date.format(value, 'yyyy-MM-dd') : null;
     return value || '';
 };
+/**
+ * The rows exactly as they land in the cached table, so a result returned
+ * inline and the same result read back through SQL cannot disagree.
+ */
+export function displayRows(lstColumnMetadata, data) {
+    return data.map((row) => {
+        const item = {};
+        for (const [name, type] of lstColumnMetadata)
+            item[name] = toColumnValue(row[name], type);
+        return item;
+    });
+}
 const escapeCsv = (value) => /[,"\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 const escapeMarkdown = (value) => value.replace(/\|/g, '\\|');
 const cellToText = (value) => value === null ? '' : value.toString();

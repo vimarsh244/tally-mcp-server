@@ -51,7 +51,7 @@ export const ledgerTools = ({ server, cache }) => {
         const primaryGroup = args.nature === 'receivable' ? 'Sundry Debtors' : 'Sundry Creditors';
         const filters = new Map([['Nature', `$$IsEqual:($_PrimaryGroup:Group:($Parent:Ledger:$Parent)):"${primaryGroup}"`]]);
         const rows = renameObjectArrayProperties(await queryCollection('Bill', ['BillDate', 'Name', 'ClosingBalance', 'Parent', '_OverDueDays'], filters, args.targetCompany, undefined, new Date(args.toDate)), new Map([['BillDate', 'bill_date'], ['Name', 'reference_number'], ['ClosingBalance', 'outstanding_amount'], ['Parent', 'party_name'], ['_OverDueDays', 'overdue_days']]));
-        return cachedTable(cache, columns(['bill_date', 'date'], ['reference_number', 'string'], ['outstanding_amount', 'number'], ['party_name', 'string'], ['overdue_days', 'number']), rows);
+        return cachedTable(cache, columns(['bill_date', 'date'], ['reference_number', 'string'], ['outstanding_amount', 'number'], ['party_name', 'string'], ['overdue_days', 'number']), rows, { company: args.targetCompany, toDate: args.toDate });
     }));
     server.registerTool('ledger-account', {
         title: 'Ledger Account',
@@ -76,7 +76,7 @@ export const ledgerTools = ({ server, cache }) => {
             return fail(response.error);
         // the report emits party_ledger, the documented column name is party_name
         const rows = renameObjectArrayProperties(openingFirst(response.data), new Map([['party_ledger', 'party_name']]));
-        return cachedTable(cache, columns(['guid', 'string'], ['date', 'date'], ['voucher_type', 'string'], ['voucher_number', 'string'], ['alternate_ledger', 'string'], ['party_name', 'string'], ['amount', 'number'], ['narration', 'string']), rows);
+        return cachedTable(cache, columns(['guid', 'string'], ['date', 'date'], ['voucher_type', 'string'], ['voucher_number', 'string'], ['alternate_ledger', 'string'], ['party_name', 'string'], ['amount', 'number'], ['narration', 'string']), rows, { company: args.targetCompany, fromDate: args.fromDate, toDate: args.toDate });
     }));
 };
 /** Tally returns the opening balance row last, but it belongs at the top. */

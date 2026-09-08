@@ -38,6 +38,19 @@ const toColumnValue = (value: any, colType: string): string | number | boolean |
     return value || '';
 };
 
+/**
+ * The rows exactly as they land in the cached table, so a result returned
+ * inline and the same result read back through SQL cannot disagree.
+ */
+export function displayRows(lstColumnMetadata: Map<string, string>, data: any[]): Record<string, any>[] {
+    return data.map((row) => {
+        const item: Record<string, any> = {};
+        for (const [name, type] of lstColumnMetadata)
+            item[name] = toColumnValue(row[name], type);
+        return item;
+    });
+}
+
 const escapeCsv = (value: string): string =>
     /[,"\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 

@@ -73,10 +73,10 @@ test('daybook caches its rows and reports the paging position', async () => {
     assert.equal(isError, false);
 
     const payload = JSON.parse(text);
-    assert.equal(payload.row_count, 1);
-    assert.equal(payload.total_row_count, 2);
-    assert.equal(payload.has_more, true);
-    assert.equal(payload.next_offset, 1);
+    assert.equal(payload.rowCount, 1);
+    assert.equal(payload.totalRowCount, 2);
+    assert.equal(payload.hasMore, true);
+    assert.equal(payload.nextOffset, 1);
 
     const rows = JSON.parse((await call('query-database',
         { sql: `SELECT guid, voucher_number, amount, is_cancelled FROM ${payload.tableID}` })).text);
@@ -87,8 +87,8 @@ test('the last daybook page reports no continuation', async () => {
     const { text } = await call('daybook',
         { fromDate: '2024-05-01', toDate: '2024-05-31', offset: 1 });
     const payload = JSON.parse(text);
-    assert.equal(payload.has_more, false);
-    assert.equal(payload.next_offset, null);
+    assert.equal(payload.hasMore, false);
+    assert.equal(payload.nextOffset, null);
 });
 
 test('daybook excludes cancelled and optional vouchers unless asked', async () => {

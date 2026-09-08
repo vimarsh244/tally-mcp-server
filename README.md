@@ -451,7 +451,7 @@ Fetches the daybook, one row per voucher entered in the period.
 |offset (optional)|Rows to skip, default 0|
 
 **Output**
-JSON: `{ "tableID": "...", "row_count": n, "total_row_count": n, "has_more": bool, "next_offset": n }` with columns:
+JSON: `{ "tableID": "...", "rowCount": n, "totalRowCount": n, "hasMore": bool, "nextOffset": n }` with columns:
 1. `guid` (pass this to *voucher-get*)
 1. `date`
 1. `voucher_type`

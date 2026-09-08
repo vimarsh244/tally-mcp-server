@@ -65,7 +65,8 @@ export const ledgerTools: ToolModule = ({ server, cache }) => {
 
         return cachedTable(cache, columns(
             ['bill_date', 'date'], ['reference_number', 'string'], ['outstanding_amount', 'number'],
-            ['party_name', 'string'], ['overdue_days', 'number']), rows);
+            ['party_name', 'string'], ['overdue_days', 'number']), rows,
+            { company: args.targetCompany, toDate: args.toDate });
     }));
 
     server.registerTool('ledger-account', {
@@ -95,7 +96,8 @@ export const ledgerTools: ToolModule = ({ server, cache }) => {
 
         return cachedTable(cache, columns(
             ['guid', 'string'], ['date', 'date'], ['voucher_type', 'string'], ['voucher_number', 'string'],
-            ['alternate_ledger', 'string'], ['party_name', 'string'], ['amount', 'number'], ['narration', 'string']), rows);
+            ['alternate_ledger', 'string'], ['party_name', 'string'], ['amount', 'number'], ['narration', 'string']), rows,
+            { company: args.targetCompany, fromDate: args.fromDate, toDate: args.toDate });
     }));
 };
 
