@@ -70,6 +70,25 @@ export const lstCollectionFields: m.TallyCollectionDefinition[] = [
         ]
     },
     {
+        collection: 'Voucher',
+        description: 'transaction or voucher header. rows are limited to the reporting period, so a from date and a to date should always be supplied',
+        fields: [
+            { name: 'Guid', datatype: 'string', description: 'stable identifier of the voucher, used by the voucher-get tool' },
+            { name: 'Date', datatype: 'date', description: 'voucher date' },
+            { name: 'VoucherTypeName', datatype: 'string', description: 'name field of VoucherType collection' },
+            { name: 'VoucherNumber', datatype: 'string' },
+            { name: 'Reference', datatype: 'string', description: 'reference or supplier invoice number' },
+            { name: 'ReferenceDate', datatype: 'date', description: 'date of the reference or supplier invoice' },
+            { name: 'PartyLedgerName', datatype: 'string', description: 'name field of Ledger collection of the party of the voucher' },
+            { name: 'Narration', datatype: 'string', description: 'notes or remarks' },
+            { name: 'IsCancelled', datatype: 'boolean', description: 'true if the voucher is cancelled' },
+            { name: 'IsOptional', datatype: 'boolean', description: 'true if the voucher is optional and does not affect the books' },
+            { name: 'IsInvoice', datatype: 'boolean', description: 'true if the voucher was entered in invoice mode' },
+            { name: 'AlterID', datatype: 'number', description: 'counter Tally increases on every change of the voucher' },
+            { name: 'MasterID', datatype: 'number', description: 'internal numeric identifier of the voucher' }
+        ]
+    },
+    {
         collection: 'Group',
         fields: [
             { name: 'Name', datatype: 'string' },
@@ -105,7 +124,16 @@ export const lstCollectionFields: m.TallyCollectionDefinition[] = [
             { name: 'GSTN', datatype: 'string', expression: 'if $$IsEmpty:$PartyGSTIN then $LedGSTRegDetails[Last].GSTIN else $PartyGSTIN', description: 'GST number of the party ledger' },
             { name: 'GSTRegType', datatype: 'string', expression: 'if $$IsEmpty:$Gstregistrationtype then $LedGSTRegDetails[Last].Gstregistrationtype else $Gstregistrationtype', description: 'GST registration type of the party ledger' },
             { name: 'GstTypeOfsupply', datatype: 'string', description: 'GST type of supply of the party ledger' },
-            { name: 'GstDutyHead', datatype: 'string', description: 'GST duty head of the party ledger' }
+            { name: 'GstDutyHead', datatype: 'string', description: 'GST duty head of the party ledger' },
+            { name: 'LedgerContact', datatype: 'string', description: 'contact person name of the ledger' },
+            { name: 'LedgerPhone', datatype: 'string', description: 'landline or phone number of the ledger' },
+            { name: 'Website', datatype: 'string', description: 'website of the ledger' },
+            { name: 'BankAccHolderName', datatype: 'string', description: 'bank account holder name, applicable to a ledger under the Bank Accounts or Bank OD group' },
+            { name: 'BankDetails', datatype: 'string', description: 'bank account number, applicable to a ledger under the Bank Accounts or Bank OD group' },
+            { name: 'IFSCode', datatype: 'string', description: 'IFSC code of the bank branch, applicable to a bank ledger' },
+            { name: 'SwiftCode', datatype: 'string', description: 'SWIFT code of the bank, applicable to a bank ledger' },
+            { name: 'BankName', datatype: 'string', description: 'name of the bank, applicable to a bank ledger' },
+            { name: 'BranchName', datatype: 'string', description: 'name of the bank branch, applicable to a bank ledger' }
         ]
     },
     {
@@ -206,6 +234,76 @@ export const lstReportConfig = [
             { name: 'party_ledger', datatype: 'string' },
             { name: 'amount', datatype: 'number' },
             { name: 'narration', datatype: 'string' }
+        ]
+    },
+    {
+        name: 'daybook',
+        input: [
+            { name: 'fromDate', datatype: 'date' },
+            { name: 'toDate', datatype: 'date' },
+            { name: 'voucherType', datatype: 'string' },
+            { name: 'partyLedgerName', datatype: 'string' },
+            { name: 'includeCancelled', datatype: 'boolean' },
+            { name: 'includeOptional', datatype: 'boolean' }
+        ],
+        output: [
+            { name: 'guid', datatype: 'string' },
+            { name: 'date', datatype: 'date' },
+            { name: 'voucher_type', datatype: 'string' },
+            { name: 'voucher_number', datatype: 'string' },
+            { name: 'reference', datatype: 'string' },
+            { name: 'party_ledger', datatype: 'string' },
+            { name: 'amount', datatype: 'number' },
+            { name: 'narration', datatype: 'string' },
+            { name: 'is_cancelled', datatype: 'boolean' },
+            { name: 'is_optional', datatype: 'boolean' }
+        ]
+    },
+    {
+        name: 'voucher-ledger-entries',
+        input: [
+            { name: 'fromDate', datatype: 'date' },
+            { name: 'toDate', datatype: 'date' },
+            { name: 'voucherGuid', datatype: 'string' }
+        ],
+        output: [
+            { name: 'guid', datatype: 'string' },
+            { name: 'ledger_name', datatype: 'string' },
+            { name: 'amount', datatype: 'number' },
+            { name: 'is_debit', datatype: 'boolean' },
+            { name: 'cost_centre', datatype: 'string' }
+        ]
+    },
+    {
+        name: 'voucher-bill-allocations',
+        input: [
+            { name: 'fromDate', datatype: 'date' },
+            { name: 'toDate', datatype: 'date' },
+            { name: 'voucherGuid', datatype: 'string' }
+        ],
+        output: [
+            { name: 'guid', datatype: 'string' },
+            { name: 'ledger_name', datatype: 'string' },
+            { name: 'bill_name', datatype: 'string' },
+            { name: 'bill_type', datatype: 'string' },
+            { name: 'amount', datatype: 'number' }
+        ]
+    },
+    {
+        name: 'voucher-inventory-entries',
+        input: [
+            { name: 'fromDate', datatype: 'date' },
+            { name: 'toDate', datatype: 'date' },
+            { name: 'voucherGuid', datatype: 'string' }
+        ],
+        output: [
+            { name: 'guid', datatype: 'string' },
+            { name: 'stock_item_name', datatype: 'string' },
+            { name: 'quantity', datatype: 'number' },
+            { name: 'rate', datatype: 'number' },
+            { name: 'amount', datatype: 'number' },
+            { name: 'godown_name', datatype: 'string' },
+            { name: 'tracking_number', datatype: 'string' }
         ]
     },
     {

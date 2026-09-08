@@ -176,7 +176,7 @@ This mode of setup is to be used, when using browser-based MCP client like ChatG
 
 ## Available Tools
 
-This server currently exposes 19 MCP tools.
+This server currently exposes 30 MCP tools.
 
 ### metadata-collection
 Returns metadata for supported collections.
@@ -434,6 +434,54 @@ JSON: `{ "tableID": "..." }` with columns:
 1. `tracking_number`
 1. `voucher_category`
 
+### daybook
+Fetches the daybook, one row per voucher entered in the period.
+
+**Input**
+|Argument|Description|
+|--|--|
+|targetCompany (optional)|Company name (defaults to active company)|
+|fromDate|Date in YYYY-MM-DD|
+|toDate|Date in YYYY-MM-DD|
+|voucherType (optional)|Exact voucher type name to filter on|
+|partyLedgerName (optional)|Exact party ledger name to filter on|
+|includeCancelled (optional)|Default `false`|
+|includeOptional (optional)|Default `false`|
+|limit (optional)|Page size, default and maximum 1000|
+|offset (optional)|Rows to skip, default 0|
+
+**Output**
+JSON: `{ "tableID": "...", "row_count": n, "total_row_count": n, "has_more": bool, "next_offset": n }` with columns:
+1. `guid` (pass this to *voucher-get*)
+1. `date`
+1. `voucher_type`
+1. `voucher_number`
+1. `reference`
+1. `party_name`
+1. `amount` (number) [total debit value of the voucher, always positive]
+1. `narration`
+1. `is_cancelled`
+1. `is_optional`
+
+### voucher-get
+Fetches one complete voucher, with every ledger line, bill reference and inventory line. A ledger statement shows only the part of a voucher that touches that one ledger, this tool shows the whole transaction.
+
+**Input**
+|Argument|Description|
+|--|--|
+|targetCompany (optional)|Company name (defaults to active company)|
+|voucherGuid|`guid` returned by *daybook* or *ledger-account*|
+|date|Date of the voucher in YYYY-MM-DD|
+|includeBills (optional)|Default `true`|
+|includeInventory (optional)|Default `true`|
+
+**Output**
+JSON returned inline, not as a cached table:
+1. `voucher` - the header, same fields as one *daybook* row
+1. `ledger_entries` - `ledger_name`, `amount` [**negative** = Debit / **positive** = Credit], `is_debit`, `cost_centre`
+1. `bill_allocations` - `ledger_name`, `bill_name`, `bill_type`, `amount`
+1. `inventory_entries` - `stock_item_name`, `quantity`, `rate`, `amount`, `godown_name`, `tracking_number`
+
 ### ledger-create-update
 Creates or updates one or more ledger.
 
@@ -456,10 +504,152 @@ Master ledger object accepts following
 |isBillWise|(optional) flag to set Bill-by-Bill referencing|
 |billCreditPeriod|(optional) Credit Period for bill in days|
 |mailingDetails|(optional) Business Name for mailing purpose, country, state, pincode, address|
+|contactDetails|(optional) contact person, phone, mobile, email, website|
+|bankDetails|(optional) account holder name, account number, IFSC code, SWIFT code, bank name, branch name. Applicable to a ledger under the Bank Accounts or Bank OD group|
 |gstRegistrationDetails|(optional) GST registration details like GST Number, Registration Type, Place of Supply (state)|
 
 **Output**
 JSON result returned by import operation (success/failure details).
+
+### voucher-create-update
+Creates new transactions, or replaces existing ones.
+
+**Note: This tool has ability to modify existing vouchers. Always backup your Company before instructing this tool.**
+
+Every ledger, voucher type and stock item named is validated first, and every amount of a voucher must add up to zero. If any voucher of the batch fails validation, nothing is sent to Tally at all.
+
+**Input**
+|Argument|Description|
+|--|--|
+|targetCompany (optional)|Company name (defaults to active company)|
+|vouchers|Array of voucher objects to create or alter|
+|verify (optional)|Default `true`. Reads the affected dates back from the daybook after the import|
+
+Voucher object accepts following
+
+|Property|Description|
+|--|--|
+|action|(optional) `create` (default) or `alter`. An alter replaces the whole voucher, so send every line again|
+|guid|Voucher guid, required when action is `alter`|
+|voucherType|Voucher type name such as Payment, Receipt, Contra, Journal, Sales, Purchase|
+|date|Date in YYYY-MM-DD|
+|effectiveDate|(optional) Defaults to the voucher date|
+|voucherNumber|(optional) Leave it out to let Tally number the voucher|
+|reference / referenceDate|(optional) Supplier invoice number and its date|
+|partyLedgerName|(optional) Party ledger of the voucher|
+|narration|(optional) Notes or remarks|
+|isInvoice|(optional) Default `false`. Set `true` for a sales or purchase in invoice mode|
+|entries|Ledger lines: `ledgerName`, `amount` [**negative** = Debit / **positive** = Credit], optional `billAllocations` and `costCentreAllocations`|
+|inventoryEntries|(optional) Stock lines: `stockItemName`, `quantity` (always positive), `rate`, `amount`, optional `unit`, `godownName`, `batchName`, `ledgerName`|
+
+**Output**
+JSON counters returned by the import, plus `verified`, the vouchers found again in the daybook.
+
+### voucher-cancel-delete
+Cancels or deletes existing transactions. A cancelled voucher keeps its number and stays visible with no entries, a deleted voucher is removed.
+
+**Note: This cannot be undone. Always backup your Company before instructing this tool.**
+
+**Input**
+|Argument|Description|
+|--|--|
+|targetCompany (optional)|Company name (defaults to active company)|
+|mode|`cancel` or `delete`|
+|vouchers|Array of `{ guid, date }`. Every guid is looked up in the daybook first|
+
+**Output**
+JSON result returned by the import operation.
+
+### group-create-update
+Creates or updates accounting groups.
+
+**Input**
+|Argument|Description|
+|--|--|
+|targetCompany (optional)|Company name (defaults to active company)|
+|masters|Array of `{ name, _name, parent, isBillWise, isCostCentresOn }`|
+
+**Output**
+JSON result returned by the import operation.
+
+### stock-group-create-update
+Creates or updates stock groups.
+
+**Input**
+|Argument|Description|
+|--|--|
+|targetCompany (optional)|Company name (defaults to active company)|
+|masters|Array of `{ name, _name, parent, isAddable }`|
+
+**Output**
+JSON result returned by the import operation.
+
+### unit-create-update
+Creates or updates units of measurement. A simple unit carries a symbol and a formal name, a compound unit needs `baseUnit`, `additionalUnit` and `conversion` together.
+
+**Input**
+|Argument|Description|
+|--|--|
+|targetCompany (optional)|Company name (defaults to active company)|
+|masters|Array of `{ name, _name, formalName, decimalPlaces, baseUnit, additionalUnit, conversion }`|
+
+**Output**
+JSON result returned by the import operation.
+
+### godown-create-update
+Creates or updates godowns, warehouses or locations.
+
+**Input**
+|Argument|Description|
+|--|--|
+|targetCompany (optional)|Company name (defaults to active company)|
+|masters|Array of `{ name, _name, parent, address }`|
+
+**Output**
+JSON result returned by the import operation.
+
+### stock-item-create-update
+Creates or updates stock items or products.
+
+**Input**
+|Argument|Description|
+|--|--|
+|targetCompany (optional)|Company name (defaults to active company)|
+|masters|Array of stock item objects|
+
+Stock item object accepts following
+
+|Property|Description|
+|--|--|
+|name / _name|Item name, and the existing name when renaming|
+|parent|Stock group|
+|category|(optional) Stock category, blank resets it to Not Applicable|
+|unit / alternateUnit / conversion|(optional) Units of measurement. An alternate unit needs a conversion|
+|partNo|(optional) Part number|
+|costingMethod|(optional) `Avg. Cost`, `FIFO`, `Std. Cost` and the other Tally methods|
+|openingQuantity / openingRate / openingValue|(optional) Opening stock as on the books begin date|
+|gstDetails|(optional) `hsnCode`, `rate` (split evenly between CGST and SGST, used whole for IGST), `taxability`|
+
+**Output**
+JSON result returned by the import operation.
+
+### company-create
+Creates a new company. This is not the same as *set-company*, which only selects a company that already exists.
+
+**Note: Tally must accept company creation over the XML interface. Read the returned counters and confirm with *list-master*.**
+
+**Input**
+|Argument|Description|
+|--|--|
+|name|Company name|
+|booksFrom|Date the books begin, in YYYY-MM-DD|
+|country / state|Validate with *query-option-values*|
+|mailingName, address, pincode, email, phoneNumber|(optional)|
+|currencySymbol / currencyName|(optional) Default is the rupee symbol and Rupees|
+|isBillWise / isInventory / isCostCentres|(optional) Defaults are `true`, `true` and `false`|
+
+**Output**
+JSON result returned by the import operation.
 
 ### delete-master
 Delete one (or more) masters from Tally
@@ -470,6 +660,8 @@ Delete one (or more) masters from Tally
 |targetCompany (optional)|Company name (defaults to active company)|
 |collection|Type of master or collection to delete. One of: `group`, `ledger`, `vouchertype`, `unit`, `godown`, `stockgroup`, `stockitem`, `costcategory`, `costcentre`, `attendancetype`, `company`, `currency`, `gstin`, `gstclassification` |
 |name|array of name(s) of master to be deleted|
+
+A voucher has no name, it is identified by its guid, so use *voucher-cancel-delete* for one.
 
 **Output**
 JSON result returned by delete operation (count of deleted, skipped, etc).

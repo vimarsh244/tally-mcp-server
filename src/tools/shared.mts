@@ -80,5 +80,13 @@ export async function cachedTable(cache: ResultCache, columns: ColumnMap, rows: 
     return ok({ tableID: await cache.cacheTable(columns, rows) });
 }
 
+/**
+ * Caches rows and returns the table id together with extra payload fields,
+ * for a tool that also has to report a row count or a paging position.
+ */
+export async function cachedTableWith(cache: ResultCache, columns: ColumnMap, rows: any[], extra: Record<string, unknown>): Promise<ToolResult> {
+    return ok({ tableID: await cache.cacheTable(columns, rows), ...extra });
+}
+
 /** Builds a column map from pairs, keeping the call sites readable. */
 export const columns = (...pairs: [string, string][]): ColumnMap => new Map(pairs);

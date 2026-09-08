@@ -15,6 +15,11 @@ Security (remote HTTP deployment only, the Claude Desktop extension is not affec
 * Authorization codes, tokens and attempt counters now expire and are swept
 
 Added:
+* Transactions can now be read. *daybook* lists the vouchers of a period, paged, with a `guid` for each, and *voucher-get* returns one complete voucher: every ledger line, bill reference and inventory line. A ledger statement only ever showed the part of a voucher that touched that one ledger
+* Transactions can now be written. *voucher-create-update* creates or replaces vouchers and *voucher-cancel-delete* cancels or removes them. Every ledger, voucher type and stock item named is checked, and the amounts must add up to zero, before anything is sent, so an invalid batch changes nothing in Tally. After a successful import the affected dates are read back from the daybook
+* A bank ledger can now carry its account holder name, account number, IFSC code, SWIFT code, bank name and branch, and any ledger its contact person, phone, mobile, email and website. All of them are readable through *query-collection* on the ledger collection
+* Inventory and company masters can now be created: *stock-item-create-update*, *stock-group-create-update*, *unit-create-update*, *godown-create-update*, *group-create-update* and *company-create*. `templates/push/master-stock-item.njk` already existed but no tool ever used it
+* A `Voucher` collection, so *query-collection* and *metadata-fields* can reach voucher headers
 * GitHub Actions CI, running the type check, the build, a check that the committed `dist/` and manifest are current, the tests on Node 24 (the active LTS), and a guard against committing `.env`
 
 Changed:
@@ -25,6 +30,10 @@ Changed:
 * Added a test suite, run with `pnpm test`
 
 Fixed:
+* GST registration details of a ledger were nested inside the mailing details block of `templates/push/master-ledger.njk`, so a ledger sent with a GSTIN and no mailing address lost the GSTIN without any error
+* The address of a ledger was accepted by *ledger-create-update* and then never written to Tally, because the template had no `ADDRESS` tag. It is written now, one tag per line
+* The pincode pattern rejected a blank value, although a blank is documented as the way to clear the field
+* `templates/push/master-stock-item.njk` read `isGstApplicable` from the top level of the payload rather than from the master, and emitted GST duty heads with no rate
 * `templates/push/master-ledger.njk` was missing an `{% endif %}` and did not compile. Nothing loaded it, so the fault went unnoticed while the working copy of the same template lived in the source as a minified string
 
 ### Version: v7.6 [04-Sep-2026]

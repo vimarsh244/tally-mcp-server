@@ -53,6 +53,13 @@ export const changesContext = { readOnlyHint: false, openWorldHint: false, destr
 export async function cachedTable(cache, columns, rows) {
     return ok({ tableID: await cache.cacheTable(columns, rows) });
 }
+/**
+ * Caches rows and returns the table id together with extra payload fields,
+ * for a tool that also has to report a row count or a paging position.
+ */
+export async function cachedTableWith(cache, columns, rows, extra) {
+    return ok({ tableID: await cache.cacheTable(columns, rows), ...extra });
+}
 /** Builds a column map from pairs, keeping the call sites readable. */
 export const columns = (...pairs) => new Map(pairs);
 //# sourceMappingURL=shared.mjs.map

@@ -21,7 +21,7 @@ after(async () => { await tally.close(); });
 
 test('every tool is registered and the manifest matches', () => {
     const registered = Object.keys(server._registeredTools).sort();
-    assert.equal(registered.length, 20);
+    assert.equal(registered.length, 30);
 
     const manifest = JSON.parse(readFileSync(new URL('../manifest.json', import.meta.url), 'utf8'));
     assert.deepEqual(manifest.tools.map((t) => t.name).sort(), registered,
@@ -29,10 +29,11 @@ test('every tool is registered and the manifest matches', () => {
 });
 
 test('tools that change Tally state are not marked read only', () => {
-    for (const name of ['set-company', 'set-period', 'ledger-create-update', 'delete-master'])
+    for (const name of ['set-company', 'set-period', 'ledger-create-update', 'delete-master',
+        'voucher-create-update', 'voucher-cancel-delete', 'stock-item-create-update', 'company-create'])
         assert.equal(server._registeredTools[name].annotations.readOnlyHint, false, `${name} claims to be read only`);
 
-    for (const name of ['trial-balance', 'balance-sheet', 'ledger-account', 'query-database'])
+    for (const name of ['trial-balance', 'balance-sheet', 'ledger-account', 'query-database', 'daybook', 'voucher-get'])
         assert.equal(server._registeredTools[name].annotations.readOnlyHint, true, `${name} should be read only`);
 });
 
@@ -135,5 +136,5 @@ test('BLOCK_WRITE hides the write tools', async () => {
         cwd: fileURLToPath(new URL('..', import.meta.url)),
         env: { ...process.env, BLOCK_WRITE: '1' },
     });
-    assert.equal(stdout.trim(), '18', 'the two write tools should be hidden');
+    assert.equal(stdout.trim(), '20', 'the ten write tools should be hidden');
 });

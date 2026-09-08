@@ -1,0 +1,100 @@
+<ENVELOPE>
+    <HEADER>
+        <VERSION>1</VERSION>
+        <TALLYREQUEST>Export</TALLYREQUEST>
+        <TYPE>Data</TYPE>
+        <ID>MyTallyLiveReport</ID>
+    </HEADER>
+    <BODY>
+        <DESC>
+            <STATICVARIABLES>
+                <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
+                <SVFROMDATE>{{ fromDate | formatDate("d-MMM-yyyy") }}</SVFROMDATE>
+                <SVTODATE>{{ toDate | formatDate("d-MMM-yyyy") }}</SVTODATE>
+                {% if targetCompany %}
+                <SVCURRENTCOMPANY>{{ targetCompany | escape }}</SVCURRENTCOMPANY>
+                {% endif %}
+            </STATICVARIABLES>
+            <TDL>
+                <TDLMESSAGE>
+                    <REPORT NAME="MyTallyLiveReport">
+                        <FORMS>MyForm</FORMS>
+                    </REPORT>
+                    <FORM NAME="MyForm">
+                        <PARTS>MyPart01</PARTS>
+                        <XMLTAG>DATA</XMLTAG>
+                    </FORM>
+                    <PART NAME="MyPart01">
+                        <LINES>MyLine01</LINES>
+                        <REPEAT>MyLine01 : MyCollection</REPEAT>
+                        <SCROLLED>Vertical</SCROLLED>
+                    </PART>
+                    <LINE NAME="MyLine01">
+                        <FIELDS>FldGuid,FldDate,FldVoucherType,FldVoucherNumber,FldReference,FldPartyLedger,FldAmount,FldNarration,FldIsCancelled,FldIsOptional</FIELDS>
+                        <XMLTAG>ROW</XMLTAG>
+                    </LINE>
+                    <FIELD NAME="FldGuid">
+                        <SET>$Guid</SET>
+                        <XMLTAG>guid</XMLTAG>
+                    </FIELD>
+                    <FIELD NAME="FldDate">
+                        <SET>$Date</SET>
+                        <XMLTAG>date</XMLTAG>
+                    </FIELD>
+                    <FIELD NAME="FldVoucherType">
+                        <SET>$VoucherTypeName</SET>
+                        <XMLTAG>voucher_type</XMLTAG>
+                    </FIELD>
+                    <FIELD NAME="FldVoucherNumber">
+                        <SET>$VoucherNumber</SET>
+                        <XMLTAG>voucher_number</XMLTAG>
+                    </FIELD>
+                    <FIELD NAME="FldReference">
+                        <SET>$Reference</SET>
+                        <XMLTAG>reference</XMLTAG>
+                    </FIELD>
+                    <FIELD NAME="FldPartyLedger">
+                        <SET>$PartyLedgerName</SET>
+                        <XMLTAG>party_ledger</XMLTAG>
+                    </FIELD>
+                    <FIELD NAME="FldAmount">
+                        <SET>-$$NumValue:$$FilterAmtTotal:AllLedgerEntries:FilterDebitEntries:$Amount</SET>
+                        <XMLTAG>amount</XMLTAG>
+                    </FIELD>
+                    <FIELD NAME="FldNarration">
+                        <SET>$Narration</SET>
+                        <XMLTAG>narration</XMLTAG>
+                    </FIELD>
+                    <FIELD NAME="FldIsCancelled">
+                        <SET>if $IsCancelled then 1 else 0</SET>
+                        <XMLTAG>is_cancelled</XMLTAG>
+                    </FIELD>
+                    <FIELD NAME="FldIsOptional">
+                        <SET>if $IsOptional then 1 else 0</SET>
+                        <XMLTAG>is_optional</XMLTAG>
+                    </FIELD>
+                    <COLLECTION NAME="MyCollection">
+                        <TYPE>Voucher</TYPE>
+                        <FETCH>AllLedgerEntries,Narration,PartyLedgerName,Reference</FETCH>
+                        {% if voucherType or partyLedgerName or not includeCancelled or not includeOptional %}
+                        <FILTER>{% set comma = joiner() %}{% if voucherType %}{{ comma() }}FilterVoucherType{% endif %}{% if partyLedgerName %}{{ comma() }}FilterParty{% endif %}{% if not includeCancelled %}{{ comma() }}FilterCancelledVouchers{% endif %}{% if not includeOptional %}{{ comma() }}FilterOptionalVouchers{% endif %}</FILTER>
+                        {% endif %}
+                    </COLLECTION>
+                    <SYSTEM TYPE="Formulae" NAME="FilterDebitEntries">$$IsDebit:$Amount</SYSTEM>
+                    {% if voucherType %}
+                    <SYSTEM TYPE="Formulae" NAME="FilterVoucherType">$$IsEqual:$VoucherTypeName:"{{ voucherType }}"</SYSTEM>
+                    {% endif %}
+                    {% if partyLedgerName %}
+                    <SYSTEM TYPE="Formulae" NAME="FilterParty">$$IsEqual:$PartyLedgerName:"{{ partyLedgerName }}"</SYSTEM>
+                    {% endif %}
+                    {% if not includeCancelled %}
+                    <SYSTEM TYPE="Formulae" NAME="FilterCancelledVouchers">NOT $IsCancelled</SYSTEM>
+                    {% endif %}
+                    {% if not includeOptional %}
+                    <SYSTEM TYPE="Formulae" NAME="FilterOptionalVouchers">NOT $IsOptional</SYSTEM>
+                    {% endif %}
+                </TDLMESSAGE>
+            </TDL>
+        </DESC>
+    </BODY>
+</ENVELOPE>

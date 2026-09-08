@@ -22,12 +22,21 @@ export async function invokeTallyAction(targetAction: string, lstParameters: Map
     await sendTallyXml('generic/invoke-action', args);
 }
 
-export async function importMasters(targetMaster: string, objMasterInput: Map<string, any>): Promise<m.CreateUpdateDeleteStatus> {
-    const template = `push/${targetMaster}`;
+/**
+ * Sends one Import Data request built from a templates/push template and
+ * returns Tally's counters. Masters and vouchers share this path, they differ
+ * only in the template they render.
+ */
+export async function importTemplate(name: string, input: Map<string, any>): Promise<m.CreateUpdateDeleteStatus> {
+    const template = `push/${name}`;
     if (!hasTemplate(template))
-        throw new Error(`No XML template for master [${targetMaster}]`);
+        throw new Error(`No XML template for import [${name}]`);
 
-    return importStatus(await sendTallyXml(template as `push/${string}`, objMasterInput));
+    return importStatus(await sendTallyXml(template as `push/${string}`, input));
+}
+
+export async function importMasters(targetMaster: string, objMasterInput: Map<string, any>): Promise<m.CreateUpdateDeleteStatus> {
+    return importTemplate(targetMaster, objMasterInput);
 }
 
 export async function deleteMasters(targetCollection: string, lstMaster: string[], targetCompany?: string): Promise<m.CreateUpdateDeleteStatus> {

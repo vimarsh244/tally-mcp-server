@@ -1,0 +1,101 @@
+<ENVELOPE>
+    <HEADER>
+        <TALLYREQUEST>Import Data</TALLYREQUEST>
+    </HEADER>
+    <BODY>
+        <IMPORTDATA>
+            <REQUESTDESC>
+                <REPORTNAME>Vouchers</REPORTNAME>
+                <STATICVARIABLES>
+                    <SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
+                    {% if targetCompany %}
+                    <SVCURRENTCOMPANY>{{ targetCompany | escape }}</SVCURRENTCOMPANY>
+                    {% endif %}
+                </STATICVARIABLES>
+            </REQUESTDESC>
+            <REQUESTDATA>
+                {% for voucher in vouchers %}
+                <TALLYMESSAGE xmlns:UDF="TallyUDF">
+                    <VOUCHER {% if voucher.guid %}REMOTEID="{{ voucher.guid | escape }}" {% endif %}VCHTYPE="{{ voucher.voucherType | escape }}" ACTION="{{ voucher.action }}" OBJVIEW="{{ voucher.objectView }}">
+                        <DATE>{{ voucher.date | formatDate("yyyyMMdd") }}</DATE>
+                        <EFFECTIVEDATE>{{ voucher.effectiveDate | formatDate("yyyyMMdd") }}</EFFECTIVEDATE>
+                        <VOUCHERTYPENAME>{{ voucher.voucherType | escape }}</VOUCHERTYPENAME>
+                        {% if voucher.guid %}
+                        <GUID>{{ voucher.guid | escape }}</GUID>
+                        {% endif %}
+                        {% if voucher.voucherNumber %}
+                        <VOUCHERNUMBER>{{ voucher.voucherNumber | escape }}</VOUCHERNUMBER>
+                        {% endif %}
+                        {% if voucher.reference %}
+                        <REFERENCE>{{ voucher.reference | escape }}</REFERENCE>
+                        {% endif %}
+                        {% if voucher.referenceDate %}
+                        <REFERENCEDATE>{{ voucher.referenceDate | formatDate("yyyyMMdd") }}</REFERENCEDATE>
+                        {% endif %}
+                        {% if voucher.partyLedgerName %}
+                        <PARTYLEDGERNAME>{{ voucher.partyLedgerName | escape }}</PARTYLEDGERNAME>
+                        {% endif %}
+                        {% if voucher.narration %}
+                        <NARRATION>{{ voucher.narration | escape }}</NARRATION>
+                        {% endif %}
+                        <ISINVOICE>{{ "Yes" if voucher.isInvoice else "No" }}</ISINVOICE>
+                        {% for entry in voucher.entries %}
+                        <ALLLEDGERENTRIES.LIST>
+                            <LEDGERNAME>{{ entry.ledgerName | escape }}</LEDGERNAME>
+                            <ISDEEMEDPOSITIVE>{{ "Yes" if entry.isDebit else "No" }}</ISDEEMEDPOSITIVE>
+                            <AMOUNT>{{ entry.amount }}</AMOUNT>
+                            {% for bill in entry.billAllocations %}
+                            <BILLALLOCATIONS.LIST>
+                                <NAME>{{ bill.name | escape }}</NAME>
+                                <BILLTYPE>{{ bill.billType | escape }}</BILLTYPE>
+                                {% if bill.creditPeriod != undefined %}
+                                <BILLCREDITPERIOD>{{ bill.creditPeriod }} Days</BILLCREDITPERIOD>
+                                {% endif %}
+                                <AMOUNT>{{ bill.amount }}</AMOUNT>
+                            </BILLALLOCATIONS.LIST>
+                            {% endfor %}
+                            {% for cost in entry.costCentreAllocations %}
+                            <CATEGORYALLOCATIONS.LIST>
+                                <CATEGORY>{{ cost.category | escape }}</CATEGORY>
+                                <ISDEEMEDPOSITIVE>{{ "Yes" if entry.isDebit else "No" }}</ISDEEMEDPOSITIVE>
+                                <COSTCENTREALLOCATIONS.LIST>
+                                    <NAME>{{ cost.name | escape }}</NAME>
+                                    <AMOUNT>{{ cost.amount }}</AMOUNT>
+                                </COSTCENTREALLOCATIONS.LIST>
+                            </CATEGORYALLOCATIONS.LIST>
+                            {% endfor %}
+                        </ALLLEDGERENTRIES.LIST>
+                        {% endfor %}
+                        {% for item in voucher.inventoryEntries %}
+                        <ALLINVENTORYENTRIES.LIST>
+                            <STOCKITEMNAME>{{ item.stockItemName | escape }}</STOCKITEMNAME>
+                            <ISDEEMEDPOSITIVE>{{ "Yes" if item.isDebit else "No" }}</ISDEEMEDPOSITIVE>
+                            <RATE>{{ item.rate }}{% if item.unit %}/{{ item.unit | escape }}{% endif %}</RATE>
+                            <AMOUNT>{{ item.amount }}</AMOUNT>
+                            <ACTUALQTY>{{ item.quantity }}{% if item.unit %} {{ item.unit | escape }}{% endif %}</ACTUALQTY>
+                            <BILLEDQTY>{{ item.quantity }}{% if item.unit %} {{ item.unit | escape }}{% endif %}</BILLEDQTY>
+                            {% if item.ledgerName %}
+                            <ACCOUNTINGALLOCATIONS.LIST>
+                                <LEDGERNAME>{{ item.ledgerName | escape }}</LEDGERNAME>
+                                <ISDEEMEDPOSITIVE>{{ "Yes" if item.isDebit else "No" }}</ISDEEMEDPOSITIVE>
+                                <AMOUNT>{{ item.amount }}</AMOUNT>
+                            </ACCOUNTINGALLOCATIONS.LIST>
+                            {% endif %}
+                            {% if item.godownName %}
+                            <BATCHALLOCATIONS.LIST>
+                                <GODOWNNAME>{{ item.godownName | escape }}</GODOWNNAME>
+                                <BATCHNAME>{{ item.batchName | escape if item.batchName else "Primary Batch" }}</BATCHNAME>
+                                <AMOUNT>{{ item.amount }}</AMOUNT>
+                                <ACTUALQTY>{{ item.quantity }}{% if item.unit %} {{ item.unit | escape }}{% endif %}</ACTUALQTY>
+                                <BILLEDQTY>{{ item.quantity }}{% if item.unit %} {{ item.unit | escape }}{% endif %}</BILLEDQTY>
+                            </BATCHALLOCATIONS.LIST>
+                            {% endif %}
+                        </ALLINVENTORYENTRIES.LIST>
+                        {% endfor %}
+                    </VOUCHER>
+                </TALLYMESSAGE>
+                {% endfor %}
+            </REQUESTDATA>
+        </IMPORTDATA>
+    </BODY>
+</ENVELOPE>
